@@ -79,4 +79,58 @@ class CompiledShaderTest < Test::Unit::TestCase
   ensure
     RLSL::CompiledShaders.singleton_class.remove_method(:empty_uniforms_render) if RLSL::CompiledShaders.respond_to?(:empty_uniforms_render)
   end
+
+  test "render raises when a required uniform is missing" do
+    RLSL::CompiledShaders.define_singleton_method(:missing_uniform_render) do |*args|
+    end
+
+    shader = RLSL::CompiledShader.new(:missing_uniform, "missing_uniform", { time: :float, mouse: :vec2 })
+
+    error = assert_raise(ArgumentError) do
+      shader.render("buf", 320, 240, { time: 1.0 })
+    end
+
+    assert_include error.message, "Missing uniform :mouse"
+  ensure
+    RLSL::CompiledShaders.singleton_class.remove_method(:missing_uniform_render) if RLSL::CompiledShaders.respond_to?(:missing_uniform_render)
+  end
+
+  test "render normalizes typed uniforms before dispatch" do
+    call_args = nil
+
+    RLSL::CompiledShaders.define_singleton_method(:typed_uniforms_render) do |*args|
+      call_args = args
+    end
+
+    shader = RLSL::CompiledShader.new(:typed_uniforms, "typed_uniforms", {
+      frame: :int,
+      enabled: :bool,
+      mouse: :vec2
+    })
+
+    shader.render("buf", 320, 240, {
+      frame: 3.0,
+      enabled: 1,
+      mouse: [10, 20]
+    })
+
+    assert_equal ["buf", 320, 240, 3, true, [10.0, 20.0]], call_args
+  ensure
+    RLSL::CompiledShaders.singleton_class.remove_method(:typed_uniforms_render) if RLSL::CompiledShaders.respond_to?(:typed_uniforms_render)
+  end
+
+  test "render raises for invalid vector uniform values" do
+    RLSL::CompiledShaders.define_singleton_method(:invalid_uniform_render) do |*args|
+    end
+
+    shader = RLSL::CompiledShader.new(:invalid_uniform, "invalid_uniform", { color: :vec3 })
+
+    error = assert_raise(ArgumentError) do
+      shader.render("buf", 320, 240, { color: [1.0, 0.5] })
+    end
+
+    assert_include error.message, "expected vec3"
+  ensure
+    RLSL::CompiledShaders.singleton_class.remove_method(:invalid_uniform_render) if RLSL::CompiledShaders.respond_to?(:invalid_uniform_render)
+  end
 end

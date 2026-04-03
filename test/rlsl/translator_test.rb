@@ -101,6 +101,26 @@ class MSLShaderTest < Test::Unit::TestCase
     assert_in_delta 800.0, unpacked[0], 0.01
     assert_in_delta 600.0, unpacked[1], 0.01
   end
+
+  test "pack_uniforms raises when a required uniform is missing" do
+    shader = RLSL::MSL::Shader.new(:test, { time: :float }, "")
+
+    error = assert_raise(ArgumentError) do
+      shader.send(:pack_uniforms, {}, 800, 600)
+    end
+
+    assert_include error.message, "Missing uniform :time"
+  end
+
+  test "pack_uniforms raises for invalid vector values" do
+    shader = RLSL::MSL::Shader.new(:test, { color: :vec3 }, "")
+
+    error = assert_raise(ArgumentError) do
+      shader.send(:pack_uniforms, { color: [1.0, 0.5] }, 800, 600)
+    end
+
+    assert_include error.message, "expected vec3"
+  end
 end
 
 class MSLTranslatorTest < Test::Unit::TestCase

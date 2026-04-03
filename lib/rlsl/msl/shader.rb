@@ -43,11 +43,12 @@ module RLSL
       private
 
       def pack_uniforms(uniforms, width, height)
+        normalized_uniforms = UniformTypes.normalize_values(@uniform_types, uniforms, shader_name: @name)
         data = [width.to_f, height.to_f].pack("ff")
         current_offset = 8
 
         @uniform_names.each do |name|
-          value = uniforms[name]
+          value = normalized_uniforms[name]
           spec = UniformTypes.metal_spec(@uniform_types[name])
           alignment = spec.metal_alignment
 

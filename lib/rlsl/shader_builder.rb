@@ -58,7 +58,7 @@ module RLSL
       end
 
       require ext_file
-      CompiledShader.new(@name, ext_name, @uniforms.keys)
+      CompiledShader.new(@name, ext_name, @uniforms)
     end
 
     def build_metal_shader
