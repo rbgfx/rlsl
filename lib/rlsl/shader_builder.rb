@@ -62,14 +62,7 @@ module RLSL
     end
 
     def build_metal_shader
-      if ruby_mode?
-        fragment_code = transpile_fragment(:msl)
-        helpers_code = @helpers_block ? @helpers_block.call : ""
-      else
-        helpers_code = @helpers_block ? @helpers_block.call : ""
-        fragment_code = @fragment_block ? @fragment_block.call : ""
-      end
-
+      helpers_code, fragment_code = resolved_sources(:msl)
       translator = MSL::Translator.new(@uniforms, helpers_code, fragment_code)
       msl_source = translator.translate
 
@@ -77,27 +70,13 @@ module RLSL
     end
 
     def build_wgsl_shader
-      if ruby_mode?
-        fragment_code = transpile_fragment(:wgsl)
-        helpers_code = @helpers_block ? @helpers_block.call : ""
-      else
-        helpers_code = @helpers_block ? @helpers_block.call : ""
-        fragment_code = @fragment_block ? @fragment_block.call : ""
-      end
-
+      helpers_code, fragment_code = resolved_sources(:wgsl)
       translator = WGSL::Translator.new(@uniforms, helpers_code, fragment_code)
       translator.translate
     end
 
     def build_glsl_shader(version: "450")
-      if ruby_mode?
-        fragment_code = transpile_fragment(:glsl)
-        helpers_code = @helpers_block ? @helpers_block.call : ""
-      else
-        helpers_code = @helpers_block ? @helpers_block.call : ""
-        fragment_code = @fragment_block ? @fragment_block.call : ""
-      end
-
+      helpers_code, fragment_code = resolved_sources(:glsl)
       translator = GLSL::Translator.new(@uniforms, helpers_code, fragment_code, version: version)
       translator.translate
     end
@@ -123,22 +102,29 @@ module RLSL
     private
 
     def generate_c_code
-      if helpers_ruby_mode?
-        helpers_code = transpile_helpers(:c)
-        helpers_block = -> { helpers_code }
-      else
-        helpers_block = @helpers_block
-      end
-
-      if ruby_mode?
-        fragment_code = transpile_fragment(:c)
-        fragment_block = -> { fragment_code }
-      else
-        fragment_block = @fragment_block
-      end
-
+      helpers_code, fragment_code = resolved_sources(:c)
+      helpers_block = -> { helpers_code }
+      fragment_block = -> { fragment_code }
       codegen = CodeGenerator.new(@name, @uniforms, helpers_block, fragment_block)
       codegen.generate
+    end
+
+    def resolved_sources(target)
+      [resolved_helpers_code(target), resolved_fragment_code(target)]
+    end
+
+    def resolved_helpers_code(target)
+      return "" unless @helpers_block
+      return @helpers_block.call unless helpers_ruby_mode?
+
+      transpile_helpers(target)
+    end
+
+    def resolved_fragment_code(target)
+      return "" unless @fragment_block
+      return @fragment_block.call unless ruby_mode?
+
+      transpile_fragment(target)
     end
 
     def compile_extension(ext_name, ext_dir, c_code)

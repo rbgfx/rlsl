@@ -290,6 +290,32 @@ class EmitterIntegrationTest < Test::Unit::TestCase
     assert code.include?("let color")
   end
 
+  test "WGSL emitter emits helper definitions with fn syntax" do
+    emitter = RLSL::Prism::Emitters::WGSLEmitter.new
+    body = RLSL::Prism::IR::Block.new([
+      RLSL::Prism::IR::Return.new(
+        RLSL::Prism::IR::FuncCall.new(
+          :vec3,
+          [
+            RLSL::Prism::IR::Literal.new(1.0, :float),
+            RLSL::Prism::IR::Literal.new(0.0, :float),
+            RLSL::Prism::IR::Literal.new(0.0, :float)
+          ]
+        )
+      )
+    ])
+    function = RLSL::Prism::IR::FunctionDefinition.new(
+      :helper_color,
+      [],
+      body,
+      return_type: :vec3
+    )
+
+    result = emitter.emit(function)
+
+    assert result.include?("fn helper_color() -> vec3<f32>")
+  end
+
   test "GLSL emitter uses vec3" do
     transpiler = RLSL::Prism::Transpiler.new({ time: :float })
     source = <<~RUBY

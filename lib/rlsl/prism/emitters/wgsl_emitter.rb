@@ -3,7 +3,7 @@
 module RLSL
   module Prism
     module Emitters
-      class WGSLEmitter < BaseEmitter
+      class WGSLEmitter < TargetEmitter
         TYPE_MAP = {
           float: "f32",
           int: "i32",
@@ -37,36 +37,10 @@ module RLSL
 
         protected
 
-        def type_name(type)
-          TYPE_MAP[type&.to_sym] || "f32"
-        end
-
         def emit_var_decl(node)
           type = type_name(node.type || :float)
           value = emit(node.initializer)
           "let #{node.name}: #{type} = #{value}"
-        end
-
-        def emit_func_call(node)
-          name = node.name.to_sym
-
-          if VECTOR_CONSTRUCTORS.key?(name)
-            args = node.args.map { |arg| emit(arg) }.join(", ")
-            return "#{VECTOR_CONSTRUCTORS[name]}(#{args})"
-          end
-
-          if MATRIX_CONSTRUCTORS.key?(name)
-            args = node.args.map { |arg| emit(arg) }.join(", ")
-            return "#{MATRIX_CONSTRUCTORS[name]}(#{args})"
-          end
-
-          if TEXTURE_FUNCTIONS.key?(name)
-            args = node.args.map { |arg| emit(arg) }.join(", ")
-            return "#{TEXTURE_FUNCTIONS[name]}(#{args})"
-          end
-
-          args = node.args.map { |arg| emit(arg) }.join(", ")
-          "#{name}(#{args})"
         end
 
         def emit_for_loop(node)
@@ -85,10 +59,37 @@ module RLSL
           "select(#{else_expr}, #{then_expr}, #{condition})"
         end
 
-        def emit_binary_op(node)
-          left = emit_with_precedence(node.left, node.operator)
-          right = emit_with_precedence(node.right, node.operator)
-          "#{left} #{node.operator} #{right}"
+        def emit_function_definition(node)
+          name = node.name
+          params = node.params.map do |param|
+            param_type = type_name(node.param_types[param] || :float)
+            "#{param}: #{param_type}"
+          end.join(", ")
+
+          if node.return_type.is_a?(Array)
+            @current_return_struct_name = "#{name}_result"
+            struct_def = emit_result_struct(name, node.return_type)
+            body = emit_indented_block(node.body, needs_return: true)
+            @current_return_struct_name = nil
+
+            "#{struct_def}fn #{name}(#{params}) -> #{name}_result {\n#{body}\n#{indent}}\n"
+          else
+            return_type = type_name(node.return_type || :float)
+            body = emit_indented_block(node.body, needs_return: true)
+
+            "fn #{name}(#{params}) -> #{return_type} {\n#{body}\n#{indent}}\n"
+          end
+        end
+
+        def emit_result_struct(func_name, types)
+          fields = types.each_with_index.map do |type, index|
+            "#{indent}v#{index}: #{type_name(type)},"
+          end.join("\n")
+          "struct #{func_name}_result {\n#{fields}\n};\n"
+        end
+
+        def default_type_name
+          "f32"
         end
       end
     end

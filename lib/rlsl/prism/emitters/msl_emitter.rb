@@ -3,7 +3,7 @@
 module RLSL
   module Prism
     module Emitters
-      class MSLEmitter < BaseEmitter
+      class MSLEmitter < TargetEmitter
         TYPE_MAP = {
           float: "float",
           int: "int",
@@ -37,38 +37,12 @@ module RLSL
 
         protected
 
-        def type_name(type)
-          TYPE_MAP[type&.to_sym] || "float"
-        end
+        def emit_texture_call(name, node)
+          return unless TEXTURE_FUNCTIONS.key?(name) && node.args.length >= 2
 
-        def emit_func_call(node)
-          name = node.name.to_sym
-
-          if VECTOR_CONSTRUCTORS.key?(name)
-            args = node.args.map { |arg| emit(arg) }.join(", ")
-            return "#{VECTOR_CONSTRUCTORS[name]}(#{args})"
-          end
-
-          if MATRIX_CONSTRUCTORS.key?(name)
-            args = node.args.map { |arg| emit(arg) }.join(", ")
-            return "#{MATRIX_CONSTRUCTORS[name]}(#{args})"
-          end
-
-          # MSL texture sampling: texture.sample(sampler, uv)
-          if TEXTURE_FUNCTIONS.key?(name) && node.args.length >= 2
-            texture = emit(node.args[0])
-            uv = emit(node.args[1])
-            return "#{texture}.sample(textureSampler, #{uv})"
-          end
-
-          args = node.args.map { |arg| emit(arg) }.join(", ")
-          "#{name}(#{args})"
-        end
-
-        def emit_binary_op(node)
-          left = emit_with_precedence(node.left, node.operator)
-          right = emit_with_precedence(node.right, node.operator)
-          "#{left} #{node.operator} #{right}"
+          texture = emit(node.args[0])
+          uv = emit(node.args[1])
+          "#{texture}.sample(textureSampler, #{uv})"
         end
       end
     end
