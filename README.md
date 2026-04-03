@@ -180,6 +180,8 @@ $ bundle install
 $ rake test
 ```
 
+For a quick local coverage summary, run `COVERAGE=1 rake test`. It prints the overall `lib/` coverage and the lowest-covered files without requiring extra gems.
+
 ## License
 
 The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
