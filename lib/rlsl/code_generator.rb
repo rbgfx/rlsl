@@ -2,6 +2,12 @@
 
 module RLSL
   class CodeGenerator
+    VECTOR_CONSTRUCTORS = {
+      2 => "vec2_new",
+      3 => "vec3_new",
+      4 => "vec4_new"
+    }.freeze
+
     def initialize(name, uniforms, helpers_block, fragment_block)
       @name = name
       @uniforms = uniforms
@@ -36,14 +42,7 @@ module RLSL
     private
 
     def generate_types
-      <<~C
-        typedef struct { float x, y; } vec2;
-        typedef struct { float x, y, z; } vec3;
-        typedef struct { float x, y, z, w; } vec4;
-
-        #define PI 3.14159265f
-        #define TAU 6.28318530f
-      C
+      RLSL::C_TYPES
     end
 
     def generate_math_helpers
@@ -118,16 +117,11 @@ module RLSL
     end
 
     def generate_uniform_struct
-      if @uniforms.empty?
+      if uniform_entries.empty?
         "typedef struct {} Uniforms;\n"
       else
-        fields = @uniforms.map do |name, type|
-          case type
-          when :float then "  float #{name};"
-          when :vec2 then "  vec2 #{name};"
-          when :vec3 then "  vec3 #{name};"
-          when :vec4 then "  vec4 #{name};"
-          end
+        fields = uniform_entries.map do |name, spec|
+          "  #{spec.c_type} #{name};"
         end.join("\n")
 
         "typedef struct {\n#{fields}\n} Uniforms;\n"
@@ -154,28 +148,8 @@ module RLSL
       uniform_args = @uniforms.map { |name, _| "VALUE rb_#{name}" }.join(", ")
       uniform_args = ", " + uniform_args unless uniform_args.empty?
 
-      uniform_parsing = @uniforms.map do |name, type|
-        case type
-        when :float
-          "  uniforms.#{name} = (float)NUM2DBL(rb_#{name});"
-        when :vec2
-          <<~C.strip
-              Check_Type(rb_#{name}, T_ARRAY);
-              uniforms.#{name} = vec2_new(
-                (float)NUM2DBL(rb_ary_entry(rb_#{name}, 0)),
-                (float)NUM2DBL(rb_ary_entry(rb_#{name}, 1))
-              );
-          C
-        when :vec3
-          <<~C.strip
-              Check_Type(rb_#{name}, T_ARRAY);
-              uniforms.#{name} = vec3_new(
-                (float)NUM2DBL(rb_ary_entry(rb_#{name}, 0)),
-                (float)NUM2DBL(rb_ary_entry(rb_#{name}, 1)),
-                (float)NUM2DBL(rb_ary_entry(rb_#{name}, 2))
-              );
-          C
-        end
+      uniform_parsing = uniform_entries.map do |name, spec|
+        generate_uniform_assignment(name, spec)
       end.join("\n")
 
       <<~C
@@ -225,6 +199,41 @@ module RLSL
 
           return Qnil;
         }
+      C
+    end
+
+    def uniform_entries
+      @uniform_entries ||= @uniforms.map do |name, type|
+        [name, UniformTypes.compiled_spec(type)]
+      end
+    end
+
+    def generate_uniform_assignment(name, spec)
+      case spec.wrapper_kind
+      when :float
+        "  uniforms.#{name} = (float)NUM2DBL(rb_#{name});"
+      when :int
+        "  uniforms.#{name} = NUM2INT(rb_#{name});"
+      when :bool
+        "  uniforms.#{name} = RTEST(rb_#{name}) ? 1 : 0;"
+      when :vector
+        generate_vector_uniform_assignment(name, spec.vector_size)
+      else
+        raise ArgumentError, "Unsupported compiled uniform type: #{spec.c_type}"
+      end
+    end
+
+    def generate_vector_uniform_assignment(name, vector_size)
+      constructor = VECTOR_CONSTRUCTORS.fetch(vector_size)
+      values = (0...vector_size).map do |index|
+        "    (float)NUM2DBL(rb_ary_entry(rb_#{name}, #{index}))"
+      end
+
+      <<~C.strip
+        Check_Type(rb_#{name}, T_ARRAY);
+        uniforms.#{name} = #{constructor}(
+      #{values.join(",\n")}
+        );
       C
     end
   end

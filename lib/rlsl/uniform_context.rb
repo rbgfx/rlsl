@@ -9,20 +9,14 @@ module RLSL
       @uniforms = {}
     end
 
-    def float(name)
-      @uniforms[name] = :float
+    def define_uniform(name, type)
+      @uniforms[name] = type
     end
 
-    def vec2(name)
-      @uniforms[name] = :vec2
-    end
-
-    def vec3(name)
-      @uniforms[name] = :vec3
-    end
-
-    def vec4(name)
-      @uniforms[name] = :vec4
+    RLSL::UNIFORM_TYPES.each do |type|
+      define_method(type) do |name|
+        define_uniform(name, type)
+      end
     end
   end
 end

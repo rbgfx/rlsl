@@ -56,11 +56,13 @@ class GLSLTranslatorTest < Test::Unit::TestCase
   end
 
   test "generates proper uniform types" do
-    uniforms = { time: :float, mouse: :vec2, pos: :vec3, color: :vec4 }
+    uniforms = { time: :float, frame: :int, enabled: :bool, mouse: :vec2, pos: :vec3, color: :vec4 }
     translator = RLSL::GLSL::Translator.new(uniforms, "", "")
     glsl = translator.translate
 
     assert glsl.include?("float time;")
+    assert glsl.include?("int frame;")
+    assert glsl.include?("bool enabled;")
     assert glsl.include?("vec2 mouse;")
     assert glsl.include?("vec3 pos;")
     assert glsl.include?("vec4 color;")

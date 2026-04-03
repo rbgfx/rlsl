@@ -84,14 +84,30 @@ module RLSL
     def uniform_type_to_target(type)
       case type
       when :float then target_float_type
+      when :int then target_int_type
+      when :bool then target_bool_type
       when :vec2 then target_vec2_type
       when :vec3 then target_vec3_type
       when :vec4 then target_vec4_type
+      when :mat2 then target_mat2_type
+      when :mat3 then target_mat3_type
+      when :mat4 then target_mat4_type
+      when :sampler2D then target_sampler2d_type
+      else
+        raise ArgumentError, "Unsupported uniform type: #{type.inspect}"
       end
     end
 
     def target_float_type
       "float"
+    end
+
+    def target_int_type
+      UniformTypes.target_type(:int, uniform_target)
+    end
+
+    def target_bool_type
+      UniformTypes.target_type(:bool, uniform_target)
     end
 
     def target_vec2_type
@@ -103,6 +119,26 @@ module RLSL
     end
 
     def target_vec4_type
+      raise NotImplementedError
+    end
+
+    def target_mat2_type
+      UniformTypes.target_type(:mat2, uniform_target)
+    end
+
+    def target_mat3_type
+      UniformTypes.target_type(:mat3, uniform_target)
+    end
+
+    def target_mat4_type
+      UniformTypes.target_type(:mat4, uniform_target)
+    end
+
+    def target_sampler2d_type
+      UniformTypes.target_type(:sampler2D, uniform_target)
+    end
+
+    def uniform_target
       raise NotImplementedError
     end
   end

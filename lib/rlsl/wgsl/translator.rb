@@ -4,6 +4,7 @@ module RLSL
   module WGSL
     class Translator < BaseTranslator
       TYPE_MAP = {
+        "int" => "i32",
         "vec2" => "vec2<f32>",
         "vec3" => "vec3<f32>",
         "vec4" => "vec4<f32>"
@@ -87,6 +88,10 @@ module RLSL
 
       def target_vec4_type
         "vec4<f32>"
+      end
+
+      def uniform_target
+        :wgsl
       end
     end
   end

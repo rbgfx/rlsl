@@ -57,6 +57,26 @@ class MSLShaderTest < Test::Unit::TestCase
     assert_equal 256, data.length
   end
 
+  test "pack_uniforms packs int uniform" do
+    uniforms = { frame: :int }
+    shader = RLSL::MSL::Shader.new(:test, uniforms, "")
+
+    data = shader.send(:pack_uniforms, { frame: 7 }, 800, 600)
+
+    unpacked = data[8, 4].unpack("l")
+    assert_equal [7], unpacked
+  end
+
+  test "pack_uniforms packs bool uniform as int" do
+    uniforms = { enabled: :bool }
+    shader = RLSL::MSL::Shader.new(:test, uniforms, "")
+
+    data = shader.send(:pack_uniforms, { enabled: true }, 800, 600)
+
+    unpacked = data[8, 4].unpack("l")
+    assert_equal [1], unpacked
+  end
+
   test "pack_uniforms handles multiple uniforms" do
     uniforms = { time: :float, pos: :vec2, color: :vec3 }
     shader = RLSL::MSL::Shader.new(:test, uniforms, "")
@@ -164,11 +184,13 @@ class MSLTranslatorTest < Test::Unit::TestCase
   end
 
   test "generates proper uniform types" do
-    uniforms = { time: :float, mouse: :vec2, pos: :vec3, color: :vec4 }
+    uniforms = { time: :float, frame: :int, enabled: :bool, mouse: :vec2, pos: :vec3, color: :vec4 }
     translator = RLSL::MSL::Translator.new(uniforms, "", "")
     msl = translator.translate
 
     assert msl.include?("float time;")
+    assert msl.include?("int frame;")
+    assert msl.include?("bool enabled;")
     assert msl.include?("float2 mouse;")
     assert msl.include?("float3 pos;")
     assert msl.include?("float4 color;")

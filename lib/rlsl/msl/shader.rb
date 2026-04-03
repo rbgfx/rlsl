@@ -48,35 +48,48 @@ module RLSL
 
         @uniform_names.each do |name|
           value = uniforms[name]
-          type = @uniform_types[name]
-
-          alignment = case type
-                      when :float then 4
-                      when :vec2 then 8
-                      when :vec3, :vec4 then 16
-                      end
+          spec = UniformTypes.metal_spec(@uniform_types[name])
+          alignment = spec.metal_alignment
 
           padding_needed = (alignment - (current_offset % alignment)) % alignment
           data += "\x00" * padding_needed
           current_offset += padding_needed
 
-          case type
-          when :float
-            data += [value.to_f].pack("f")
-            current_offset += 4
-          when :vec2
-            data += value.pack("ff")
-            current_offset += 8
-          when :vec3
-            data += (value + [0.0]).pack("ffff")
-            current_offset += 16
-          when :vec4
-            data += value.pack("ffff")
-            current_offset += 16
-          end
+          data += pack_uniform_value(spec, value)
+          current_offset += spec.metal_size
         end
 
         data.ljust(256, "\x00")
+      end
+
+      def pack_uniform_value(spec, value)
+        case spec.wrapper_kind
+        when :float
+          [value.to_f].pack("f")
+        when :int
+          [value.to_i].pack("l")
+        when :bool
+          [value ? 1 : 0].pack("l")
+        when :vector
+          pack_vector_uniform(spec.vector_size, value)
+        else
+          raise ArgumentError, "Unsupported Metal uniform type: #{spec.c_type}"
+        end
+      end
+
+      def pack_vector_uniform(vector_size, value)
+        components = Array(value).map(&:to_f)
+
+        case vector_size
+        when 2
+          components.pack("ff")
+        when 3
+          (components + [0.0]).pack("ffff")
+        when 4
+          components.pack("ffff")
+        else
+          raise ArgumentError, "Unsupported vector size: #{vector_size}"
+        end
       end
     end
   end

@@ -50,11 +50,13 @@ class WGSLTranslatorTest < Test::Unit::TestCase
   end
 
   test "generates proper uniform types" do
-    uniforms = { time: :float, mouse: :vec2, pos: :vec3, color: :vec4 }
+    uniforms = { time: :float, frame: :int, enabled: :bool, mouse: :vec2, pos: :vec3, color: :vec4 }
     translator = RLSL::WGSL::Translator.new(uniforms, "", "")
     wgsl = translator.translate
 
     assert wgsl.include?("time: f32")
+    assert wgsl.include?("frame: i32")
+    assert wgsl.include?("enabled: bool")
     assert wgsl.include?("mouse: vec2<f32>")
     assert wgsl.include?("pos: vec3<f32>")
     assert wgsl.include?("color: vec4<f32>")
@@ -64,6 +66,12 @@ class WGSLTranslatorTest < Test::Unit::TestCase
     translator = RLSL::WGSL::Translator.new({}, "float foo = 1.0;", "")
     wgsl = translator.translate
     assert wgsl.include?("f32 foo = 1.0;")
+  end
+
+  test "replaces int type with i32" do
+    translator = RLSL::WGSL::Translator.new({}, "int counter = 1;", "")
+    wgsl = translator.translate
+    assert wgsl.include?("i32 counter = 1;")
   end
 end
 

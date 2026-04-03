@@ -28,6 +28,10 @@ class BaseTranslatorTest < Test::Unit::TestCase
     def target_vec4_type
       "test_vec4"
     end
+
+    def uniform_target
+      :wgsl
+    end
   end
 
   def setup
@@ -87,6 +91,14 @@ class BaseTranslatorTest < Test::Unit::TestCase
 
   test "uniform_type_to_target returns vec4 for vec4" do
     assert_equal "test_vec4", @translator.send(:uniform_type_to_target, :vec4)
+  end
+
+  test "uniform_type_to_target returns i32 for int" do
+    assert_equal "i32", @translator.send(:uniform_type_to_target, :int)
+  end
+
+  test "uniform_type_to_target returns bool for bool" do
+    assert_equal "bool", @translator.send(:uniform_type_to_target, :bool)
   end
 
   test "target_float_type returns float" do

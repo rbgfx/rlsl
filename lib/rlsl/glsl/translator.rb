@@ -92,6 +92,10 @@ module RLSL
       def target_vec4_type
         "vec4"
       end
+
+      def uniform_target
+        :glsl
+      end
     end
   end
 end

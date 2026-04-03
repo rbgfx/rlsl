@@ -32,6 +32,12 @@ class RLSLTypesTest < Test::Unit::TestCase
     assert_equal %i[float vec2 vec3 vec4 int bool mat2 mat3 mat4 sampler2D], RLSL::UNIFORM_TYPES
   end
 
+  test "UNIFORM_TYPE_SPECS maps WGSL bool type" do
+    spec = RLSL::UniformTypes.fetch(:bool)
+    assert_equal "bool", spec.wgsl_type
+    assert_equal "int", spec.c_type
+  end
+
   test "C_TYPES contains mat2 definition" do
     assert RLSL::C_TYPES.include?("typedef struct { float m[4]; } mat2;")
   end
@@ -96,5 +102,11 @@ class TypeMappingTest < Test::Unit::TestCase
 
   test "C_UNIFORM_TYPES is frozen" do
     assert RLSL::TypeMapping::C_UNIFORM_TYPES.frozen?
+  end
+
+  test "compiled_spec rejects unsupported compiled uniform types" do
+    assert_raise(ArgumentError) do
+      RLSL::UniformTypes.compiled_spec(:mat4)
+    end
   end
 end

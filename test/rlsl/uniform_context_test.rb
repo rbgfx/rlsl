@@ -31,4 +31,16 @@ class UniformContextTest < Test::Unit::TestCase
     ctx.vec4(:color)
     assert_equal :vec4, ctx.uniforms[:color]
   end
+
+  test "int adds int uniform" do
+    ctx = RLSL::UniformContext.new
+    ctx.int(:frame)
+    assert_equal :int, ctx.uniforms[:frame]
+  end
+
+  test "bool adds bool uniform" do
+    ctx = RLSL::UniformContext.new
+    ctx.bool(:enabled)
+    assert_equal :bool, ctx.uniforms[:enabled]
+  end
 end

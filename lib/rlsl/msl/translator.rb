@@ -84,6 +84,10 @@ module RLSL
       def target_vec4_type
         "float4"
       end
+
+      def uniform_target
+        :msl
+      end
     end
   end
 end

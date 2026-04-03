@@ -12,11 +12,13 @@ class CodeGeneratorTest < Test::Unit::TestCase
   end
 
   test "generates all uniform types in one struct" do
-    uniforms = { time: :float, pos2d: :vec2, pos3d: :vec3, color: :vec4 }
+    uniforms = { time: :float, frame: :int, enabled: :bool, pos2d: :vec2, pos3d: :vec3, color: :vec4 }
     gen = RLSL::CodeGenerator.new(:test, uniforms, nil, -> { "return vec3_new(1.0f, 0.0f, 0.0f);" })
     code = gen.generate
 
     assert code.include?("float time;")
+    assert code.include?("int frame;")
+    assert code.include?("int enabled;")
     assert code.include?("vec2 pos2d;")
     assert code.include?("vec3 pos3d;")
     assert code.include?("vec4 color;")
@@ -87,6 +89,22 @@ class CodeGeneratorTest < Test::Unit::TestCase
     code = gen.generate
 
     assert code.include?("uniforms.time = (float)NUM2DBL(rb_time);")
+  end
+
+  test "generates int uniform parsing" do
+    uniforms = { frame: :int }
+    gen = RLSL::CodeGenerator.new(:test, uniforms, nil, -> { "" })
+    code = gen.generate
+
+    assert code.include?("uniforms.frame = NUM2INT(rb_frame);")
+  end
+
+  test "generates bool uniform parsing" do
+    uniforms = { enabled: :bool }
+    gen = RLSL::CodeGenerator.new(:test, uniforms, nil, -> { "" })
+    code = gen.generate
+
+    assert code.include?("uniforms.enabled = RTEST(rb_enabled) ? 1 : 0;")
   end
 
   test "generates Apple-specific parallel dispatch" do
@@ -164,5 +182,13 @@ class CodeGeneratorTest < Test::Unit::TestCase
     gen = RLSL::CodeGenerator.new(:test, uniforms, nil, -> { "" })
     code = gen.generate
     assert code.include?("vec3 pos;")
+  end
+
+  test "rejects unsupported compiled uniform types" do
+    gen = RLSL::CodeGenerator.new(:test, { transform: :mat4 }, nil, -> { "" })
+
+    assert_raise(ArgumentError) do
+      gen.generate
+    end
   end
 end
