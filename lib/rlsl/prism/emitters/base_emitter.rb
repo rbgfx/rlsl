@@ -13,63 +13,66 @@ module RLSL
           "*" => 6, "/" => 6, "%" => 6
         }.freeze
 
+        MULTILINE_NODES = [
+          IR::IfStatement,
+          IR::ForLoop,
+          IR::WhileLoop,
+          IR::FunctionDefinition
+        ].freeze
+
+        RETURN_PASSTHROUGH_NODES = [
+          IR::Return,
+          IR::VarDecl,
+          IR::Assignment,
+          IR::ForLoop,
+          IR::WhileLoop,
+          IR::FunctionDefinition,
+          IR::GlobalDecl,
+          IR::MultipleAssignment
+        ].freeze
+
+        {
+          block: :emit_block,
+          var_decl: :emit_var_decl,
+          var_ref: :emit_var_ref,
+          literal: :emit_literal,
+          bool_literal: :emit_bool_literal,
+          binary_op: :emit_binary_op,
+          unary_op: :emit_unary_op,
+          func_call: :emit_func_call,
+          field_access: :emit_field_access,
+          swizzle: :emit_swizzle,
+          if_statement: :emit_if_statement,
+          ternary: :emit_ternary,
+          return: :emit_return,
+          assignment: :emit_assignment,
+          for_loop: :emit_for_loop,
+          while_loop: :emit_while_loop,
+          break: :emit_break,
+          constant: :emit_constant,
+          parenthesized: :emit_parenthesized,
+          function_definition: :emit_function_definition,
+          array_literal: :emit_array_literal,
+          array_index: :emit_array_index,
+          global_decl: :emit_global_decl,
+          multiple_assignment: :emit_multiple_assignment
+        }.each do |visit_name, emitter_name|
+          define_method(:"visit_#{visit_name}") do |node|
+            send(emitter_name, node)
+          end
+        end
+
         attr_reader :indent_level
 
         def initialize
           @indent_level = 0
+          @return_context_stack = [false]
         end
 
         def emit(node, needs_return: false)
-          case node
-          when IR::Block
-            emit_block(node, needs_return: needs_return)
-          when IR::VarDecl
-            emit_var_decl(node)
-          when IR::VarRef
-            emit_var_ref(node)
-          when IR::Literal
-            emit_literal(node)
-          when IR::BoolLiteral
-            emit_bool_literal(node)
-          when IR::BinaryOp
-            emit_binary_op(node)
-          when IR::UnaryOp
-            emit_unary_op(node)
-          when IR::FuncCall
-            emit_func_call(node)
-          when IR::FieldAccess
-            emit_field_access(node)
-          when IR::Swizzle
-            emit_swizzle(node)
-          when IR::IfStatement
-            emit_if_statement(node)
-          when IR::Ternary
-            emit_ternary(node)
-          when IR::Return
-            emit_return(node)
-          when IR::Assignment
-            emit_assignment(node)
-          when IR::ForLoop
-            emit_for_loop(node)
-          when IR::WhileLoop
-            emit_while_loop(node)
-          when IR::Break
-            emit_break(node)
-          when IR::Constant
-            emit_constant(node)
-          when IR::Parenthesized
-            emit_parenthesized(node)
-          when IR::FunctionDefinition
-            emit_function_definition(node)
-          when IR::ArrayLiteral
-            emit_array_literal(node)
-          when IR::ArrayIndex
-            emit_array_index(node)
-          when IR::GlobalDecl
-            emit_global_decl(node)
-          when IR::MultipleAssignment
-            emit_multiple_assignment(node)
-          else
+          with_return_context(needs_return) do
+            return node.accept(self) if node.respond_to?(:accept)
+
             raise "Unknown IR node: #{node.class}"
           end
         end
@@ -80,9 +83,11 @@ module RLSL
           type.to_s
         end
 
-        def emit_block(node, needs_return: false)
+        def emit_block(node, needs_return = nil)
           statements = node.statements
           return "" if statements.empty?
+
+          needs_return = return_context? if needs_return.nil?
 
           if needs_return && statements.any?
             result = statements[0...-1].map { |stmt| emit_statement(stmt) }.join
@@ -93,18 +98,11 @@ module RLSL
         end
 
         def emit_with_return(node)
-          if node.is_a?(IR::IfStatement)
-            emit_if_with_return(node)
-          elsif node.is_a?(IR::Return)
-            emit_statement(node)
-          elsif node.is_a?(IR::FunctionDefinition) || node.is_a?(IR::GlobalDecl) ||
-                node.is_a?(IR::MultipleAssignment)
-            emit_statement(node)
-          elsif node.is_a?(IR::ArrayLiteral)
-            emit_tuple_return(node)
-          else
-            "#{indent}return #{emit(node)};\n"
-          end
+          return emit(node, needs_return: true) if node.is_a?(IR::IfStatement)
+          return emit_statement(node) if RETURN_PASSTHROUGH_NODES.any? { |klass| node.is_a?(klass) }
+          return emit_tuple_return(node) if node.is_a?(IR::ArrayLiteral)
+
+          "#{indent}return #{emit(node)};\n"
         end
 
         def emit_tuple_return(node)
@@ -112,34 +110,41 @@ module RLSL
           "#{indent}return (#{current_return_struct_name}){#{elements}};\n"
         end
 
-        def emit_if_with_return(node)
+        def emit_if_statement(node)
+          emit_conditional(node, needs_return: return_context?)
+        end
+
+        def emit_conditional(node, needs_return:)
           condition = emit(node.condition)
-          then_code = emit_branch_with_return(node.then_branch)
+          then_code = emit_branch(node.then_branch, needs_return: needs_return)
 
           if node.else_branch
             if elsif_node?(node.else_branch)
-              elsif_code = emit_elsif_with_return(node.else_branch)
-              "#{indent}if (#{condition}) {\n#{then_code}#{indent}} #{elsif_code}\n"
+              elsif_code = emit_elsif(node.else_branch, needs_return: needs_return)
+              suffix = needs_return ? "\n" : ""
+              "#{indent}if (#{condition}) {\n#{then_code}#{indent}} #{elsif_code}#{suffix}"
             else
-              else_code = emit_branch_with_return(node.else_branch)
-              "#{indent}if (#{condition}) {\n#{then_code}#{indent}} else {\n#{else_code}#{indent}}\n"
+              else_code = emit_branch(node.else_branch, needs_return: needs_return)
+              suffix = needs_return ? "\n" : ""
+              "#{indent}if (#{condition}) {\n#{then_code}#{indent}} else {\n#{else_code}#{indent}}#{suffix}"
             end
           else
-            "#{indent}if (#{condition}) {\n#{then_code}#{indent}}\n"
+            suffix = needs_return ? "\n" : ""
+            "#{indent}if (#{condition}) {\n#{then_code}#{indent}}#{suffix}"
           end
         end
 
-        def emit_elsif_with_return(node)
+        def emit_elsif(node, needs_return: false)
           if_node = node.is_a?(IR::Block) ? node.statements.first : node
           condition = emit(if_node.condition)
-          then_code = emit_branch_with_return(if_node.then_branch)
+          then_code = emit_branch(if_node.then_branch, needs_return: needs_return)
 
           if if_node.else_branch
             if elsif_node?(if_node.else_branch)
-              elsif_code = emit_elsif_with_return(if_node.else_branch)
+              elsif_code = emit_elsif(if_node.else_branch, needs_return: needs_return)
               "else if (#{condition}) {\n#{then_code}#{indent}} #{elsif_code}"
             else
-              else_code = emit_branch_with_return(if_node.else_branch)
+              else_code = emit_branch(if_node.else_branch, needs_return: needs_return)
               "else if (#{condition}) {\n#{then_code}#{indent}} else {\n#{else_code}#{indent}}"
             end
           else
@@ -147,32 +152,23 @@ module RLSL
           end
         end
 
-        def emit_branch_with_return(node)
+        def emit_branch(node, needs_return:)
           @indent_level += 1
           result = if node.is_a?(IR::Block)
-                     emit_block(node, needs_return: true)
+                     emit(node, needs_return: needs_return)
                    else
-                     emit_with_return(node)
+                     emit_statement(node, needs_return: needs_return)
                    end
           @indent_level -= 1
           result
         end
 
         def emit_statement(node, needs_return: false)
-          if needs_return && !node.is_a?(IR::Return) && !node.is_a?(IR::IfStatement) &&
-             !node.is_a?(IR::ForLoop) && !node.is_a?(IR::WhileLoop) && !node.is_a?(IR::VarDecl) &&
-             !node.is_a?(IR::Assignment) && !node.is_a?(IR::FunctionDefinition) &&
-             !node.is_a?(IR::GlobalDecl) && !node.is_a?(IR::MultipleAssignment)
-            return "#{indent}return #{emit(node)};\n"
-          end
+          return emit_with_return(node) if needs_return
 
           code = emit(node)
-          if node.is_a?(IR::IfStatement) || node.is_a?(IR::ForLoop) ||
-             node.is_a?(IR::WhileLoop) || node.is_a?(IR::FunctionDefinition)
-            "#{indent}#{code}\n"
-          else
-            "#{indent}#{code};\n"
-          end
+          terminator = MULTILINE_NODES.any? { |klass| node.is_a?(klass) } ? "\n" : ";\n"
+          "#{indent}#{code}#{terminator}"
         end
 
         def emit_var_decl(node)
@@ -226,23 +222,6 @@ module RLSL
           "#{receiver}.#{node.components}"
         end
 
-        def emit_if_statement(node)
-          condition = emit(node.condition)
-          then_code = emit_indented_block(node.then_branch)
-
-          if node.else_branch
-            if elsif_node?(node.else_branch)
-              elsif_code = emit_elsif(node.else_branch)
-              "if (#{condition}) {\n#{then_code}#{indent}} #{elsif_code}"
-            else
-              else_code = emit_indented_block(node.else_branch)
-              "if (#{condition}) {\n#{then_code}#{indent}} else {\n#{else_code}#{indent}}"
-            end
-          else
-            "if (#{condition}) {\n#{then_code}#{indent}}"
-          end
-        end
-
         def emit_ternary(node)
           condition = emit(node.condition)
           then_expr = emit(node.then_expr)
@@ -255,24 +234,6 @@ module RLSL
           return false unless node.is_a?(IR::Block)
 
           node.statements.length == 1 && node.statements.first.is_a?(IR::IfStatement)
-        end
-
-        def emit_elsif(node)
-          if_node = node.is_a?(IR::Block) ? node.statements.first : node
-          condition = emit(if_node.condition)
-          then_code = emit_indented_block(if_node.then_branch)
-
-          if if_node.else_branch
-            if elsif_node?(if_node.else_branch)
-              elsif_code = emit_elsif(if_node.else_branch)
-              "else if (#{condition}) {\n#{then_code}#{indent}} #{elsif_code}"
-            else
-              else_code = emit_indented_block(if_node.else_branch)
-              "else if (#{condition}) {\n#{then_code}#{indent}} else {\n#{else_code}#{indent}}"
-            end
-          else
-            "else if (#{condition}) {\n#{then_code}#{indent}}"
-          end
         end
 
         def emit_return(node)
@@ -462,7 +423,7 @@ module RLSL
         def emit_indented_block(node, needs_return: false)
           @indent_level += 1
           result = if node.is_a?(IR::Block)
-                     emit_block(node, needs_return: needs_return)
+                     emit(node, needs_return: needs_return)
                    else
                      emit_statement(node, needs_return: needs_return)
                    end
@@ -482,6 +443,17 @@ module RLSL
 
         def function_name(name)
           name.to_s
+        end
+
+        def with_return_context(enabled)
+          @return_context_stack << enabled
+          yield
+        ensure
+          @return_context_stack.pop
+        end
+
+        def return_context?
+          @return_context_stack.last
         end
       end
     end
