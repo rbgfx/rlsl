@@ -96,7 +96,7 @@ class PrismTypeInferenceTest < Test::Unit::TestCase
     assert_equal :mat3, parenthesized.type
   end
 
-  test "loops keep nil type and register loop variables" do
+  test "loops keep nil type and keep loop variables scoped" do
     for_loop = RLSL::Prism::IR::ForLoop.new(
       :i,
       literal(0),
@@ -115,10 +115,10 @@ class PrismTypeInferenceTest < Test::Unit::TestCase
 
     assert_nil for_loop.type
     assert_nil while_loop.type
-    assert_equal :int, @type_inference.lookup(:i)
+    assert_nil @type_inference.lookup(:i)
   end
 
-  test "function definitions infer return types from body and register params" do
+  test "function definitions infer return types and keep params scoped to the body" do
     definition = RLSL::Prism::IR::FunctionDefinition.new(
       :distance_from_origin,
       [:x, :y],
@@ -134,8 +134,8 @@ class PrismTypeInferenceTest < Test::Unit::TestCase
 
     assert_equal :float, definition.return_type
     assert_equal :float, definition.type
-    assert_equal :float, @type_inference.lookup(:x)
-    assert_equal :float, @type_inference.lookup(:y)
+    assert_nil @type_inference.lookup(:x)
+    assert_nil @type_inference.lookup(:y)
   end
 
   test "array literals and indexes infer element types" do
@@ -206,6 +206,19 @@ class PrismTypeInferenceTest < Test::Unit::TestCase
     infer(array_literal)
 
     assert_equal :array_float, array_literal.type
+  end
+
+  test "branch-local declarations do not leak outside conditionals" do
+    conditional = RLSL::Prism::IR::IfStatement.new(
+      RLSL::Prism::IR::BoolLiteral.new(true),
+      RLSL::Prism::IR::Block.new([
+        RLSL::Prism::IR::VarDecl.new(:branch_value, literal(1.0))
+      ])
+    )
+
+    infer(conditional)
+
+    assert_nil @type_inference.lookup(:branch_value)
   end
 
   private

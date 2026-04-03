@@ -2,21 +2,65 @@
 
 module RLSL
   module Prism
-    class TypeInference
-      attr_reader :symbol_table
+    class ScopeStack
+      def initialize
+        @scopes = [{}]
+      end
 
+      def push(initial_scope = {})
+        @scopes << normalize(initial_scope)
+      end
+
+      def pop
+        raise "Cannot pop the global scope" if @scopes.length == 1
+
+        @scopes.pop
+      end
+
+      def register(name, type)
+        @scopes.last[name.to_sym] = type
+      end
+
+      def lookup(name)
+        @scopes.reverse_each do |scope|
+          return scope[name.to_sym] if scope.key?(name.to_sym)
+        end
+
+        nil
+      end
+
+      def to_h
+        @scopes.each_with_object({}) do |scope, merged|
+          merged.merge!(scope)
+        end
+      end
+
+      private
+
+      def normalize(scope)
+        scope.each_with_object({}) do |(name, type), normalized|
+          normalized[name.to_sym] = type
+        end
+      end
+    end
+
+    class TypeInference
       def initialize(uniforms = {}, custom_functions = {})
-        @symbol_table = {}
+        @scopes = ScopeStack.new
         @uniforms = uniforms
         @custom_functions = custom_functions
 
         uniforms.each do |name, type|
-          @symbol_table[name.to_sym] = type
+          register(name, type)
         end
       end
 
+      def symbol_table
+        @scopes.to_h
+      end
+
       def register(name, type)
-        @symbol_table[name.to_sym] = type
+        @scopes.register(name, type)
       end
 
       def register_function(name, returns:)
@@ -24,13 +68,13 @@ module RLSL
       end
 
       def lookup(name)
-        @symbol_table[name.to_sym]
+        @scopes.lookup(name)
       end
 
-      def infer(node)
+      def infer(node, scoped: false)
         case node
         when IR::Block
-          infer_block(node)
+          infer_block(node, scoped: scoped)
         when IR::VarDecl
           infer_var_decl(node)
         when IR::VarRef
@@ -81,10 +125,12 @@ module RLSL
 
       private
 
-      def infer_block(node)
-        node.statements.each { |stmt| infer(stmt) }
-        node.type = node.statements.last&.type
-        node
+      def infer_block(node, scoped: false)
+        infer_with_optional_scope(scoped) do
+          node.statements.each { |stmt| infer(stmt) }
+          node.type = node.statements.last&.type
+          node
+        end
       end
 
       def infer_var_decl(node)
@@ -162,8 +208,8 @@ module RLSL
 
       def infer_if_statement(node)
         infer(node.condition)
-        infer(node.then_branch)
-        infer(node.else_branch) if node.else_branch
+        infer_child_scope(node.then_branch)
+        infer_child_scope(node.else_branch) if node.else_branch
 
         node.type = node.then_branch.type
         node
@@ -191,30 +237,32 @@ module RLSL
       end
 
       def infer_for_loop(node)
-        register(node.variable, :int)
         infer(node.range_start)
         infer(node.range_end)
-        infer(node.body)
+
+        infer_in_scope(node.variable => :int) do
+          infer(node.body)
+        end
+
         node.type = nil
         node
       end
 
       def infer_while_loop(node)
         infer(node.condition)
-        infer(node.body)
+        infer_child_scope(node.body)
         node.type = nil
         node
       end
 
       def infer_function_definition(node)
-        node.param_types.each do |param_name, param_type|
-          register(param_name, param_type)
+        infer_in_scope(node.param_types) do
+          infer(node.body)
+
+          node.return_type ||= node.body&.type
+          node.type = node.return_type
         end
 
-        infer(node.body)
-
-        node.return_type ||= node.body&.type
-        node.type = node.return_type
         node
       end
 
@@ -240,7 +288,7 @@ module RLSL
         if array_type.to_s.start_with?("array_")
           node.type = array_type.to_s.sub("array_", "").to_sym
         else
-          node.type = @symbol_table["#{node.array.name}_element_type".to_sym] || :float
+          node.type = lookup("#{node.array.name}_element_type") || :float
         end
         node
       end
@@ -281,7 +329,7 @@ module RLSL
             target.type = elem_type
             register(target.name, target.type)
           end
-        elsif @custom_functions.key?(node.value.name) && node.value.is_a?(IR::FuncCall)
+        elsif node.value.is_a?(IR::FuncCall) && @custom_functions.key?(node.value.name)
           func_info = @custom_functions[node.value.name]
           if func_info[:returns].is_a?(Array)
             node.targets.each_with_index do |target, i|
@@ -293,6 +341,31 @@ module RLSL
 
         node.type = nil
         node
+      end
+
+      def infer_child_scope(node)
+        infer_in_scope { infer(node) }
+      end
+
+      def infer_in_scope(initial_scope = nil)
+        if initial_scope
+          @scopes.push(initial_scope)
+        else
+          @scopes.push
+        end
+
+        yield
+      ensure
+        @scopes.pop
+      end
+
+      def infer_with_optional_scope(scoped)
+        return yield unless scoped
+
+        @scopes.push
+        yield
+      ensure
+        @scopes.pop if scoped
       end
     end
   end
