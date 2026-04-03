@@ -21,27 +21,19 @@ module RLSL
 
   class << self
     def define(name, &block)
-      builder = ShaderBuilder.new(name)
-      builder.instance_eval(&block)
-      builder.compile_and_load
+      build_shader(name, &block).compile_and_load
     end
 
     def define_metal(name, &block)
-      builder = ShaderBuilder.new(name)
-      builder.instance_eval(&block)
-      builder.build_metal_shader
+      build_shader(name, &block).build_metal_shader
     end
 
     def to_wgsl(name, &block)
-      builder = ShaderBuilder.new(name)
-      builder.instance_eval(&block)
-      builder.build_wgsl_shader
+      build_shader(name, &block).build_wgsl_shader
     end
 
     def to_glsl(name, version: "450", &block)
-      builder = ShaderBuilder.new(name)
-      builder.instance_eval(&block)
-      builder.build_glsl_shader(version: version)
+      build_shader(name, &block).build_glsl_shader(version: version)
     end
 
     def cache_dir
@@ -49,6 +41,14 @@ module RLSL
         FileUtils.mkdir_p(CACHE_DIR)
         CACHE_DIR
       end
+    end
+
+    private
+
+    def build_shader(name, &block)
+      builder = ShaderBuilder.new(name)
+      builder.instance_eval(&block)
+      builder
     end
   end
 
