@@ -157,6 +157,14 @@ class PrismTranspilerTest < Test::Unit::TestCase
     assert result.include?("return 0.0f")
   end
 
+  test "parse_source raises for invalid builtin function calls" do
+    error = assert_raise(RLSL::Prism::SignatureError) do
+      @transpiler.parse_source("x = sin(vec2(1.0, 2.0))\nreturn x")
+    end
+
+    assert_include error.message, "expected float, got vec2"
+  end
+
   test "emit with needs_return false" do
     @transpiler.parse_source("x = 1.0\nreturn x")
     result = @transpiler.emit(:c, needs_return: false)
@@ -212,6 +220,23 @@ class PrismTranspilerHelpersTest < Test::Unit::TestCase
 
     result = transpiler.transpile_helpers(block, :c, { helper_func: { returns: :float } })
     assert_kind_of String, result
+  end
+
+  test "transpile_helpers raises for custom signature mismatch" do
+    transpiler = RLSL::Prism::Transpiler.new(
+      {},
+      { helper_func: { returns: :float, params: { uv: :vec2 } } }
+    )
+
+    block = proc do
+      helper_func(1.0)
+    end
+
+    error = assert_raise(RLSL::Prism::SignatureError) do
+      transpiler.transpile_helpers(block, :c, { helper_func: { returns: :float, params: { uv: :vec2 } } })
+    end
+
+    assert_include error.message, "expected vec2, got float"
   end
 end
 

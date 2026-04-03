@@ -2,6 +2,8 @@
 
 module RLSL
   module Prism
+    class SignatureError < StandardError; end
+
     class ScopeStack
       def initialize
         @scopes = [{}]
@@ -180,8 +182,10 @@ module RLSL
         sig = Builtins.function_signature(node.name)
         if sig
           arg_types = node.args.map(&:type)
+          validate_builtin_call!(node, arg_types, sig) unless skip_builtin_validation?(node, sig)
           node.type = Builtins.resolve_return_type(sig[:returns], arg_types)
         elsif @custom_functions.key?(node.name.to_sym)
+          validate_custom_call!(node.name, node.args.map(&:type), @custom_functions[node.name.to_sym])
           node.type = @custom_functions[node.name.to_sym][:returns]
         else
           node.type = node.receiver&.type
@@ -366,6 +370,68 @@ module RLSL
         yield
       ensure
         @scopes.pop if scoped
+      end
+
+      def validate_builtin_call!(node, arg_types, signature)
+        validate_signature!(
+          node.name,
+          arg_types,
+          signature[:args],
+          variadic: signature[:variadic],
+          min_args: signature[:min_args]
+        )
+      end
+
+      def validate_custom_call!(name, arg_types, signature)
+        params = signature[:params]
+        return unless params
+
+        validate_signature!(name, arg_types, params.values)
+      end
+
+      def validate_signature!(name, arg_types, expected_types, variadic: false, min_args: nil)
+        validate_argument_count!(name, arg_types.length, expected_types.length, variadic: variadic, min_args: min_args)
+
+        arg_types.each_with_index do |actual_type, index|
+          expected_type = expected_types[index]
+          next if compatible_argument_type?(expected_type, actual_type)
+
+          raise SignatureError,
+                "Invalid argument #{index + 1} for #{name}: expected #{expected_type}, got #{actual_type || :unknown}"
+        end
+      end
+
+      def validate_argument_count!(name, actual_count, expected_count, variadic:, min_args:)
+        return if valid_argument_count?(actual_count, expected_count, variadic: variadic, min_args: min_args)
+
+        raise SignatureError,
+              "Wrong number of arguments for #{name}: expected #{expected_count_description(expected_count, variadic, min_args)}, got #{actual_count}"
+      end
+
+      def valid_argument_count?(actual_count, expected_count, variadic:, min_args:)
+        return actual_count == expected_count unless variadic
+
+        minimum = min_args || expected_count
+        actual_count.between?(minimum, expected_count)
+      end
+
+      def expected_count_description(expected_count, variadic, min_args)
+        return expected_count.to_s unless variadic
+
+        minimum = min_args || expected_count
+        minimum == expected_count ? minimum.to_s : "#{minimum}..#{expected_count}"
+      end
+
+      def compatible_argument_type?(expected_type, actual_type)
+        return true if expected_type == :any
+        return true if expected_type == actual_type
+        return true if expected_type == :float && actual_type == :int
+
+        false
+      end
+
+      def skip_builtin_validation?(node, signature)
+        signature[:variadic] && node.args.empty? && !node.type.nil?
       end
     end
   end

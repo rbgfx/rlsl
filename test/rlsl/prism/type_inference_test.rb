@@ -60,6 +60,37 @@ class PrismTypeInferenceTest < Test::Unit::TestCase
     assert_equal :vec4, receiver_fallback.type
   end
 
+  test "builtin calls validate argument count" do
+    error = assert_raise(RLSL::Prism::SignatureError) do
+      infer(RLSL::Prism::IR::FuncCall.new(:sin, []))
+    end
+
+    assert_include error.message, "Wrong number of arguments for sin"
+  end
+
+  test "builtin calls validate argument types" do
+    error = assert_raise(RLSL::Prism::SignatureError) do
+      infer(RLSL::Prism::IR::FuncCall.new(:sin, [var(:uv, :vec2)]))
+    end
+
+    assert_include error.message, "expected float, got vec2"
+  end
+
+  test "custom calls validate declared parameter types when present" do
+    inference = RLSL::Prism::TypeInference.new(
+      {},
+      { noise: { returns: :float, params: { uv: :vec2, gain: :float } } }
+    )
+
+    error = assert_raise(RLSL::Prism::SignatureError) do
+      inference.infer(
+        RLSL::Prism::IR::FuncCall.new(:noise, [literal(1.0), RLSL::Prism::IR::BoolLiteral.new(true)])
+      )
+    end
+
+    assert_include error.message, "Invalid argument 1 for noise"
+  end
+
   test "field access and swizzles infer component and vector types" do
     component = RLSL::Prism::IR::FieldAccess.new(var(:color, :vec3), "x")
     uniform_field = RLSL::Prism::IR::FieldAccess.new(var(:u), :texture_size)
