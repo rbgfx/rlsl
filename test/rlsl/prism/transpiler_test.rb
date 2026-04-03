@@ -1258,6 +1258,31 @@ class PrismSourceExtractorTest < Test::Unit::TestCase
     source = @extractor.extract(block)
     assert source.include?("x = 1.0")
   end
+
+  test "extract handles assigned if expressions" do
+    block = proc do
+      x = if true
+            1.0
+          else
+            0.0
+          end
+      x
+    end
+
+    source = @extractor.extract(block)
+    assert source.include?("x = if true")
+    assert source.include?("else")
+  end
+
+  test "extract ignores modifier forms when counting nested blocks" do
+    block = proc do
+      x = 1.0 if true
+      x
+    end
+
+    source = @extractor.extract(block)
+    assert source.include?("x = 1.0 if true")
+  end
 end
 
 class PrismASTVisitorTest < Test::Unit::TestCase
@@ -1500,4 +1525,3 @@ class PrismASTVisitorTest < Test::Unit::TestCase
     assert_equal :TAU, stmt.initializer.name
   end
 end
-
