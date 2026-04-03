@@ -192,6 +192,38 @@ class PrismASTVisitorExtendedTest < Test::Unit::TestCase
     assert_kind_of RLSL::Prism::IR::Block, ir
   end
 
+  test "block parameters do not leak outside nested blocks" do
+    source = <<~RUBY
+      3.times do |i|
+        i
+      end
+      x = i
+      return x
+    RUBY
+
+    ir = @visitor.parse(source)
+    stmt = ir.statements[1]
+
+    assert_kind_of RLSL::Prism::IR::FuncCall, stmt.initializer
+    assert_equal :i, stmt.initializer.name
+  end
+
+  test "function parameters do not leak outside definitions" do
+    source = <<~RUBY
+      def helper(x)
+        return x
+      end
+      y = x
+      return y
+    RUBY
+
+    ir = @visitor.parse(source)
+    stmt = ir.statements[1]
+
+    assert_kind_of RLSL::Prism::IR::FuncCall, stmt.initializer
+    assert_equal :x, stmt.initializer.name
+  end
+
   test "parse binary operator on receiver" do
     source = "a = 1.0\nb = 2.0\nc = a + b\nreturn c"
     ir = @visitor.parse(source)
