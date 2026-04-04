@@ -64,6 +64,28 @@ class BaseTranslatorTest < Test::Unit::TestCase
     assert result.include?("vec3<f32>(mix(a, b, t), sin(x), cos(y))")
   end
 
+  test "translate leaves comments and strings unchanged" do
+    translator = TestTranslator.new(
+      {},
+      "// test_func(x)\nconst char* label = \"test_func(y)\";",
+      "test_func(z)"
+    )
+
+    result = translator.translate
+
+    assert_include result, "// test_func(x)"
+    assert_include result, "\"test_func(y)\""
+    assert_include result, "replaced_func(z)"
+  end
+
+  test "translate leaves block comments unchanged" do
+    translator = TestTranslator.new({}, "/* int should stay test_func(a) */", "int y = 2;")
+    result = translator.translate
+
+    assert_include result, "/* int should stay test_func(a) */"
+    assert_include result, "integer y = 2;"
+  end
+
   test "translate handles nil helpers code" do
     translator = TestTranslator.new({}, nil, "fragment")
     result = translator.translate

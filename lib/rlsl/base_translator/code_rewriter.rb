@@ -25,6 +25,24 @@ module RLSL
         index = 0
 
         while index < segment.length
+          if line_comment_start?(segment, index)
+            comment, index = read_line_comment(segment, index)
+            output << comment
+            next
+          end
+
+          if block_comment_start?(segment, index)
+            comment, index = read_block_comment(segment, index)
+            output << comment
+            next
+          end
+
+          if string_delimiter?(segment[index])
+            literal, index = read_quoted(segment, index)
+            output << literal
+            next
+          end
+
           if identifier_start?(segment, index)
             identifier, identifier_end = read_identifier(segment, index)
             call_index = skip_whitespace(segment, identifier_end)
@@ -56,6 +74,47 @@ module RLSL
         end
 
         output
+      end
+
+      def line_comment_start?(segment, index)
+        segment[index, 2] == "//"
+      end
+
+      def block_comment_start?(segment, index)
+        segment[index, 2] == "/*"
+      end
+
+      def string_delimiter?(char)
+        char == '"' || char == "'"
+      end
+
+      def read_line_comment(segment, index)
+        newline_index = segment.index("\n", index)
+        end_index = newline_index ? newline_index : segment.length
+        [segment[index...end_index], end_index]
+      end
+
+      def read_block_comment(segment, index)
+        closing_index = segment.index("*/", index + 2)
+        raise ArgumentError, "Unterminated block comment in translation source" unless closing_index
+
+        end_index = closing_index + 2
+        [segment[index...end_index], end_index]
+      end
+
+      def read_quoted(segment, index)
+        quote = segment[index]
+        cursor = index + 1
+
+        while cursor < segment.length
+          if segment[cursor] == quote && segment[cursor - 1] != "\\"
+            return [segment[index..cursor], cursor + 1]
+          end
+
+          cursor += 1
+        end
+
+        raise ArgumentError, "Unterminated string literal in translation source"
       end
 
       def render_call(rewriter, arguments)
