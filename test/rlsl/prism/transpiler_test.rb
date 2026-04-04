@@ -35,6 +35,14 @@ class PrismTranspilerTest < Test::Unit::TestCase
     assert_equal :sin, stmt.initializer.name
   end
 
+  test "compile_source returns a stateless compilation unit" do
+    compilation = @transpiler.compile_source("x = 1.0\nreturn x")
+
+    assert_kind_of RLSL::Prism::CompilationUnit, compilation
+    assert_kind_of RLSL::Prism::SourceUnit, compilation.source_unit
+    assert_kind_of RLSL::Prism::IR::Block, compilation.ir
+  end
+
   test "parse vec3 constructor" do
     source = "color = vec3(1.0, 0.0, 0.0)\nreturn color"
     ir = @transpiler.parse_source(source)
@@ -139,6 +147,14 @@ class PrismTranspilerTest < Test::Unit::TestCase
     assert_kind_of String, result
   end
 
+  test "emit accepts an explicit compilation unit" do
+    compilation = @transpiler.compile_source("x = 1.0\nreturn x")
+    result = @transpiler.emit(:c, compilation: compilation)
+
+    assert_kind_of String, result
+    assert_include result, "return x"
+  end
+
   test "transpile_source combines parse and emit" do
     result = @transpiler.transpile_source("x = 1.0\nreturn x", :c)
     assert result.include?("1.0f")
@@ -187,6 +203,18 @@ class PrismTranspilerTest < Test::Unit::TestCase
     @transpiler.parse_source("x = 1.0\nreturn x")
     result = @transpiler.emit(:c, needs_return: false)
     assert_kind_of String, result
+  end
+
+  test "compile_helpers strips parameters before inference" do
+    transpiler = RLSL::Prism::Transpiler.new
+    block = proc do |uv|
+      uv
+    end
+
+    compilation = transpiler.compile_helpers(block)
+
+    assert_equal [], compilation.source_unit.params
+    assert_kind_of RLSL::Prism::IR::Block, compilation.ir
   end
 end
 

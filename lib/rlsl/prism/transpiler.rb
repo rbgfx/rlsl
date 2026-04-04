@@ -3,6 +3,7 @@
 require "prism"
 
 require_relative "ir/nodes"
+require_relative "compilation_unit"
 require_relative "source_unit"
 require_relative "source_extractor"
 require_relative "builtins"
@@ -26,51 +27,66 @@ module RLSL
         glsl: Emitters::GLSLEmitter
       }.freeze
 
-      attr_reader :ir, :uniforms, :custom_functions
+      attr_reader :uniforms, :custom_functions
 
       def initialize(uniforms = {}, custom_functions = {})
         @uniforms = uniforms
         @custom_functions = custom_functions
         @source_extractor = SourceExtractor.new
-        @ir = nil
+        @last_compilation = nil
       end
 
       def parse_block(block)
-        @ir = build_ir(@source_extractor.extract_unit(block))
-        infer_ir(@ir)
-        @ir
+        @last_compilation = compile_block(block)
+        ir
       end
 
       def parse_source(source)
-        @ir = build_ir(source_unit(source))
-        infer_ir(@ir)
-        @ir
+        @last_compilation = compile_source(source)
+        ir
       end
 
-      def emit(target, needs_return: true)
-        raise "No IR parsed yet. Call parse_block or parse_source first." unless @ir
+      def compile_block(block)
+        compile_unit(@source_extractor.extract_unit(block))
+      end
+
+      def compile_source(source)
+        compile_unit(source_unit(source))
+      end
+
+      def compile_helpers(block, function_signatures = {})
+        compile_unit(
+          @source_extractor.extract_unit(block).without_params,
+          function_signatures: function_signatures
+        )
+      end
+
+      def ir
+        @last_compilation&.ir
+      end
+
+      def emit(target, needs_return: true, compilation: @last_compilation)
+        raise "No IR parsed yet. Call parse_block or parse_source first." unless compilation
 
         emitter = resolve_emitter(target)
-        validate_target_capabilities!(target)
-        emitter.emit(@ir, needs_return: needs_return)
+        validate_target_capabilities!(compilation.ir, target)
+        emitter.emit(compilation.ir, needs_return: needs_return)
       end
 
       def transpile(block, target)
-        parse_block(block)
-        emit(target)
+        emit(target, compilation: compile_block(block))
       end
 
       def transpile_source(source, target)
-        parse_source(source)
-        emit(target)
+        emit(target, compilation: compile_source(source))
       end
 
       def transpile_helpers(block, target, function_signatures = {})
-        @ir = build_ir(@source_extractor.extract_unit(block).without_params)
-        apply_function_signatures(@ir, function_signatures)
-        infer_ir(@ir)
-
-        emit(target, needs_return: false)
+        emit(
+          target,
+          needs_return: false,
+          compilation: compile_helpers(block, function_signatures)
+        )
       end
 
       private
@@ -82,6 +98,13 @@ module RLSL
       def build_ir(unit)
         visitor = ASTVisitor.new(uniforms: @uniforms, params: unit.params)
         visitor.parse(unit.body)
+      end
+
+      def compile_unit(unit, function_signatures: nil)
+        ir = build_ir(unit)
+        apply_function_signatures(ir, function_signatures || {})
+        infer_ir(ir)
+        CompilationUnit.new(source_unit: unit, ir: ir)
       end
 
       def infer_ir(ir)
@@ -102,8 +125,8 @@ module RLSL
         emitter_class.new
       end
 
-      def validate_target_capabilities!(target)
-        TargetCapabilityValidator.new.validate!(@ir, target)
+      def validate_target_capabilities!(ir, target)
+        TargetCapabilityValidator.new.validate!(ir, target)
       end
 
       def apply_function_signatures(ir, signatures)
@@ -118,11 +141,6 @@ module RLSL
           stmt.return_type = sig[:returns]
           stmt.param_types = sig[:params] || {}
         end
-      end
-
-      def extract_block_body(source)
-        unit = source_unit(source)
-        [unit.params, unit.body]
       end
     end
   end
