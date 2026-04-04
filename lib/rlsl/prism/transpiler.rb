@@ -8,6 +8,7 @@ require_relative "source_extractor"
 require_relative "builtins"
 require_relative "ast_visitor"
 require_relative "type_inference"
+require_relative "target_capability_validator"
 require_relative "emitters/base_emitter"
 require_relative "emitters/target_emitter"
 require_relative "emitters/c_emitter"
@@ -50,6 +51,7 @@ module RLSL
         raise "No IR parsed yet. Call parse_block or parse_source first." unless @ir
 
         emitter = resolve_emitter(target)
+        validate_target_capabilities!(target)
         emitter.emit(@ir, needs_return: needs_return)
       end
 
@@ -98,6 +100,10 @@ module RLSL
         raise "Unknown target: #{target}" unless emitter_class
 
         emitter_class.new
+      end
+
+      def validate_target_capabilities!(target)
+        TargetCapabilityValidator.new.validate!(@ir, target)
       end
 
       def apply_function_signatures(ir, signatures)

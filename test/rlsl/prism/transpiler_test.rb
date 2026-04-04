@@ -165,6 +165,24 @@ class PrismTranspilerTest < Test::Unit::TestCase
     assert_include error.message, "expected float, got vec2"
   end
 
+  test "emit raises for target-unsupported builtin" do
+    error = assert_raise(RLSL::Prism::TargetCapabilityError) do
+      @transpiler.transpile_source("m = mat2(1.0)\nreturn determinant(m)", :c)
+    end
+
+    assert_include error.message, "Builtin determinant is not supported on C"
+  end
+
+  test "emit raises for target-unsupported uniform types used by builtins" do
+    transpiler = RLSL::Prism::Transpiler.new({ texture: :sampler2D })
+
+    error = assert_raise(RLSL::Prism::TargetCapabilityError) do
+      transpiler.transpile_source("color = texture2D(u.texture, vec2(0.0, 0.0))\nreturn color", :msl)
+    end
+
+    assert_include error.message, "sampler2D"
+  end
+
   test "emit with needs_return false" do
     @transpiler.parse_source("x = 1.0\nreturn x")
     result = @transpiler.emit(:c, needs_return: false)
