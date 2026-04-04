@@ -267,11 +267,12 @@ class PrismASTVisitorExtendedTest < Test::Unit::TestCase
     assert_nil result
   end
 
-  test "visit unknown node uses visit_default" do
-    # Parse some code and verify it handles unknown nodes gracefully
-    source = "return 1.0"
-    ir = @visitor.parse(source)
-    assert_kind_of RLSL::Prism::IR::Block, ir
+  test "unsupported syntax raises early" do
+    error = assert_raise(RLSL::Prism::UnsupportedSyntaxError) do
+      @visitor.parse("message = \"hello\"\nreturn 1.0")
+    end
+
+    assert_include error.message, "Unsupported Prism node"
   end
 
   test "parse for loop with variable" do

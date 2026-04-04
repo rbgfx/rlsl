@@ -10,9 +10,16 @@ require_relative "ast_visitor/definition_visiting"
 
 module RLSL
   module Prism
+    class UnsupportedSyntaxError < StandardError; end
+
     class ASTVisitor
       BINARY_OPERATORS = %w[+ - * / % == != < > <= >= && ||].freeze
       UNARY_OPERATORS = %w[- !].freeze
+      TRANSPARENT_NODES = [
+        (::Prism::ArgumentsNode if defined?(::Prism::ArgumentsNode)),
+        (::Prism::BlockParametersNode if defined?(::Prism::BlockParametersNode)),
+        (::Prism::ParametersNode if defined?(::Prism::ParametersNode))
+      ].compact.freeze
       NODE_VISITORS = {}.tap do |visitors|
         visitors[::Prism::ProgramNode] = :visit_program if defined?(::Prism::ProgramNode)
         visitors[::Prism::StatementsNode] = :visit_statements if defined?(::Prism::StatementsNode)
@@ -78,6 +85,8 @@ module RLSL
         method_name = NODE_VISITORS[node.class]
         return send(method_name, node) if method_name
 
+        raise UnsupportedSyntaxError, "Unsupported Prism node: #{node.class}" unless transparent_node?(node)
+
         visit_default(node)
       end
 
@@ -90,6 +99,10 @@ module RLSL
           children << result if result
         end
         children.length == 1 ? children.first : children
+      end
+
+      def transparent_node?(node)
+        TRANSPARENT_NODES.include?(node.class)
       end
 
       def visit_program(node)
