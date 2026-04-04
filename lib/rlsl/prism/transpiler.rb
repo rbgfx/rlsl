@@ -29,9 +29,10 @@ module RLSL
 
       attr_reader :uniforms, :custom_functions
 
-      def initialize(uniforms = {}, custom_functions = {})
+      def initialize(uniforms = {}, custom_functions = {}, globals: {})
         @uniforms = uniforms
         @custom_functions = custom_functions
+        @globals = globals
         @source_extractor = SourceExtractor.new
       end
 
@@ -91,7 +92,7 @@ module RLSL
       end
 
       def infer_ir(ir)
-        inference = TypeInference.new(@uniforms, @custom_functions)
+        inference = TypeInference.new(@uniforms, @custom_functions, globals: @globals)
         register_pipeline_symbols(inference)
         inference.infer(ir)
       end

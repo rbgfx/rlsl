@@ -47,10 +47,11 @@ module RLSL
         IR::FunctionDefinition => :infer_function_definition
       }.freeze
 
-      def initialize(uniforms = {}, custom_functions = {})
+      def initialize(uniforms = {}, custom_functions = {}, globals: {})
         @types = TypeEnvironment.new
         @uniforms = uniforms
         @custom_functions = custom_functions
+        @globals = globals
         @inferer_registry = InfererRegistry.new
         @call_validator = CallValidator.new
         @call_type_resolver = CallTypeResolver.new(
@@ -83,6 +84,10 @@ module RLSL
         register_inferers
 
         uniforms.each do |name, type|
+          register(name, type)
+        end
+
+        globals.each do |name, type|
           register(name, type)
         end
       end

@@ -31,7 +31,7 @@ module RLSL
         return source_snippet(@definition.helpers_block.call) unless ruby_helpers?
 
         source_snippet(
-          transpiler.transpile_helpers(@definition.helpers_block, target, @definition.custom_functions),
+          helpers_transpiler.transpile_helpers(@definition.helpers_block, target, @definition.custom_functions),
           format: :target
         )
       end
@@ -40,15 +40,43 @@ module RLSL
         return source_snippet("") unless @definition.fragment_block
         return source_snippet(@definition.fragment_block.call) unless ruby_fragment?
 
-        source_snippet(transpiler.transpile(@definition.fragment_block, target), format: :target)
+        source_snippet(fragment_transpiler.transpile(@definition.fragment_block, target), format: :target)
       end
 
       def source_snippet(code, format: :legacy)
         BaseTranslator::SourceSnippet.new(code: code.to_s, format: format)
       end
 
-      def transpiler
-        @transpiler ||= @transpiler_class.new(@definition.uniforms, @definition.custom_functions)
+      def helpers_transpiler
+        @helpers_transpiler ||= build_transpiler
+      end
+
+      def fragment_transpiler
+        @fragment_transpiler ||= build_transpiler(globals: helper_globals)
+      end
+
+      def build_transpiler(globals: {})
+        @transpiler_class.new(@definition.uniforms, @definition.custom_functions, globals: globals)
+      end
+
+      def helper_globals
+        return {} unless ruby_helpers? && @definition.helpers_block
+
+        @helper_globals ||= begin
+          compilation = helpers_transpiler.compile_helpers(@definition.helpers_block, @definition.custom_functions)
+          extract_global_types(compilation.ir)
+        end
+      end
+
+      def extract_global_types(ir)
+        return {} unless ir.is_a?(Prism::IR::Block)
+
+        ir.statements.each_with_object({}) do |statement, globals|
+          next unless statement.is_a?(Prism::IR::GlobalDecl)
+          next unless statement.type
+
+          globals[statement.name] = statement.type
+        end
       end
 
       def ruby_helpers?
