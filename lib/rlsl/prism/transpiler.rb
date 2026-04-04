@@ -17,6 +17,8 @@ require_relative "emitters/glsl_emitter"
 module RLSL
   module Prism
     class Transpiler
+      SourceUnit = Struct.new(:params, :body, keyword_init: true)
+
       TARGETS = {
         c: Emitters::CEmitter,
         msl: Emitters::MSLEmitter,
@@ -34,31 +36,19 @@ module RLSL
       end
 
       def parse_block(block)
-        source = @source_extractor.extract(block)
-        parse_source(source)
+        parse_source(@source_extractor.extract(block))
       end
 
       def parse_source(source)
-        params, body = extract_block_body(source)
-
-        visitor = ASTVisitor.new(uniforms: @uniforms, params: params)
-        @ir = visitor.parse(body)
-
-        inference = TypeInference.new(@uniforms, @custom_functions)
-        inference.register(:frag_coord, :vec2)
-        inference.register(:resolution, :vec2)
-        inference.infer(@ir)
-
+        @ir = build_ir(source_unit(source))
+        infer_ir(@ir)
         @ir
       end
 
       def emit(target, needs_return: true)
         raise "No IR parsed yet. Call parse_block or parse_source first." unless @ir
 
-        emitter_class = TARGETS[target.to_sym]
-        raise "Unknown target: #{target}" unless emitter_class
-
-        emitter = emitter_class.new
+        emitter = resolve_emitter(target)
         emitter.emit(@ir, needs_return: needs_return)
       end
 
@@ -73,21 +63,46 @@ module RLSL
       end
 
       def transpile_helpers(block, target, function_signatures = {})
-        source = @source_extractor.extract(block)
-        _, body = extract_block_body(source)
-
-        visitor = ASTVisitor.new(uniforms: @uniforms)
-        @ir = visitor.parse(body)
-
+        @ir = build_ir(helper_source_unit(@source_extractor.extract(block)))
         apply_function_signatures(@ir, function_signatures)
-
-        inference = TypeInference.new(@uniforms, @custom_functions)
-        inference.infer(@ir)
+        infer_ir(@ir)
 
         emit(target, needs_return: false)
       end
 
       private
+
+      def source_unit(source)
+        params, body = extract_block_body(source)
+        SourceUnit.new(params: params, body: body)
+      end
+
+      def helper_source_unit(source)
+        SourceUnit.new(params: [], body: source_unit(source).body)
+      end
+
+      def build_ir(unit)
+        visitor = ASTVisitor.new(uniforms: @uniforms, params: unit.params)
+        visitor.parse(unit.body)
+      end
+
+      def infer_ir(ir)
+        inference = TypeInference.new(@uniforms, @custom_functions)
+        register_pipeline_symbols(inference)
+        inference.infer(ir)
+      end
+
+      def register_pipeline_symbols(inference)
+        inference.register(:frag_coord, :vec2)
+        inference.register(:resolution, :vec2)
+      end
+
+      def resolve_emitter(target)
+        emitter_class = TARGETS[target.to_sym]
+        raise "Unknown target: #{target}" unless emitter_class
+
+        emitter_class.new
+      end
 
       def apply_function_signatures(ir, signatures)
         return unless ir.is_a?(IR::Block)
