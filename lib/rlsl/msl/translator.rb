@@ -3,28 +3,21 @@
 module RLSL
   module MSL
     class Translator < BaseTranslator
-      TYPE_MAP = {
-        "vec2" => "float2",
-        "vec3" => "float3",
-        "vec4" => "float4"
-      }.freeze
-
-      FUNC_REPLACEMENTS = BaseTranslator.common_func_replacements(
-        target_vec2: "float2",
-        target_vec3: "float3",
-        target_vec4: "float4"
-      ).freeze
+      PROFILE = BaseTranslator.build_profile(
+        uniform_target: :msl,
+        type_map: {
+          "vec2" => "float2",
+          "vec3" => "float3",
+          "vec4" => "float4"
+        },
+        func_replacements: BaseTranslator.common_func_replacements(
+          target_vec2: "float2",
+          target_vec3: "float3",
+          target_vec4: "float4"
+        )
+      )
 
       protected
-
-      def translate_code(c_code)
-        result = super(c_code)
-        return result if result.empty?
-
-        result.gsub!(/\bstatic\s+/, "")
-        result.gsub!(/\binline\s+/, "")
-        result
-      end
 
       def generate_shader(helpers, fragment)
         <<~MSL
@@ -64,29 +57,15 @@ module RLSL
 
       private
 
+      def profile
+        PROFILE
+      end
+
       def generate_uniform_struct
-        fields = ["float2 resolution;"]
-        @uniforms.each do |name, type|
-          msl_type = uniform_type_to_target(type)
-          fields << "#{msl_type} #{name};"
+        fields = uniform_lines(resolution_line: "#{target_vec2_type} resolution;") do |name, msl_type|
+          "#{msl_type} #{name};"
         end
         fields.join("\n    ")
-      end
-
-      def target_vec2_type
-        "float2"
-      end
-
-      def target_vec3_type
-        "float3"
-      end
-
-      def target_vec4_type
-        "float4"
-      end
-
-      def uniform_target
-        :msl
       end
     end
   end

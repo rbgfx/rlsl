@@ -3,30 +3,23 @@
 module RLSL
   module WGSL
     class Translator < BaseTranslator
-      TYPE_MAP = {
-        "int" => "i32",
-        "vec2" => "vec2<f32>",
-        "vec3" => "vec3<f32>",
-        "vec4" => "vec4<f32>"
-      }.freeze
-
-      FUNC_REPLACEMENTS = BaseTranslator.common_func_replacements(
-        target_vec2: "vec2<f32>",
-        target_vec3: "vec3<f32>",
-        target_vec4: "vec4<f32>"
-      ).freeze
+      PROFILE = BaseTranslator.build_profile(
+        uniform_target: :wgsl,
+        type_map: {
+          "float" => "f32",
+          "int" => "i32",
+          "vec2" => "vec2<f32>",
+          "vec3" => "vec3<f32>",
+          "vec4" => "vec4<f32>"
+        },
+        func_replacements: BaseTranslator.common_func_replacements(
+          target_vec2: "vec2<f32>",
+          target_vec3: "vec3<f32>",
+          target_vec4: "vec4<f32>"
+        )
+      )
 
       protected
-
-      def translate_code(c_code)
-        result = super(c_code)
-        return result if result.empty?
-
-        result.gsub!(/\bstatic\s+/, "")
-        result.gsub!(/\binline\s+/, "")
-        result.gsub!(/\bfloat\b/, "f32")
-        result
-      end
 
       def generate_shader(helpers, fragment)
         <<~WGSL
@@ -65,33 +58,19 @@ module RLSL
 
       private
 
-      def generate_uniform_struct
-        fields = ["resolution: vec2<f32>,"]
-        @uniforms.each do |name, type|
-          wgsl_type = uniform_type_to_target(type)
-          fields << "#{name}: #{wgsl_type},"
-        end
-        fields.join("\n    ")
+      def profile
+        PROFILE
       end
 
       def target_float_type
-        "f32"
+        UniformTypes.target_type(:float, uniform_target)
       end
 
-      def target_vec2_type
-        "vec2<f32>"
-      end
-
-      def target_vec3_type
-        "vec3<f32>"
-      end
-
-      def target_vec4_type
-        "vec4<f32>"
-      end
-
-      def uniform_target
-        :wgsl
+      def generate_uniform_struct
+        fields = uniform_lines(resolution_line: "resolution: #{target_vec2_type},") do |name, wgsl_type|
+          "#{name}: #{wgsl_type},"
+        end
+        fields.join("\n    ")
       end
     end
   end

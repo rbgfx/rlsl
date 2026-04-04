@@ -3,17 +3,15 @@
 module RLSL
   module GLSL
     class Translator < BaseTranslator
-      TYPE_MAP = {
-        "vec2" => "vec2",
-        "vec3" => "vec3",
-        "vec4" => "vec4"
-      }.freeze
-
-      FUNC_REPLACEMENTS = BaseTranslator.common_func_replacements(
-        target_vec2: "vec2",
-        target_vec3: "vec3",
-        target_vec4: "vec4"
-      ).freeze
+      PROFILE = BaseTranslator.build_profile(
+        uniform_target: :glsl,
+        type_map: {},
+        func_replacements: BaseTranslator.common_func_replacements(
+          target_vec2: "vec2",
+          target_vec3: "vec3",
+          target_vec4: "vec4"
+        )
+      )
 
       def initialize(uniforms, helpers_code, fragment_code, version: "450")
         super(uniforms, helpers_code, fragment_code)
@@ -21,15 +19,6 @@ module RLSL
       end
 
       protected
-
-      def translate_code(c_code)
-        result = super(c_code)
-        return result if result.empty?
-
-        result.gsub!(/\bstatic\s+/, "")
-        result.gsub!(/\binline\s+/, "")
-        result
-      end
 
       def generate_shader(helpers, fragment)
         <<~GLSL
@@ -70,31 +59,19 @@ module RLSL
 
       private
 
+      def profile
+        PROFILE
+      end
+
       def generate_uniform_declarations
-        declarations = ["layout(binding = 1) uniform ShaderUniforms {",
-                        "    vec2 resolution;"]
-        @uniforms.each do |name, type|
-          glsl_type = uniform_type_to_target(type)
-          declarations << "    #{glsl_type} #{name};"
-        end
+        declarations = ["layout(binding = 1) uniform ShaderUniforms {"]
+        declarations.concat(
+          uniform_lines(resolution_line: "    #{target_vec2_type} resolution;") do |name, glsl_type|
+            "    #{glsl_type} #{name};"
+          end
+        )
         declarations << "} u;"
         declarations.join("\n")
-      end
-
-      def target_vec2_type
-        "vec2"
-      end
-
-      def target_vec3_type
-        "vec3"
-      end
-
-      def target_vec4_type
-        "vec4"
-      end
-
-      def uniform_target
-        :glsl
       end
     end
   end
