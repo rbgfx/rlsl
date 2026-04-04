@@ -68,13 +68,6 @@ module RLSL
           binary_op_resolver: :emit_profile_binary_op
         ).freeze
 
-        TYPE_MAP = PROFILE.type_map
-        VECTOR_CONSTRUCTORS = PROFILE.vector_constructors
-        MATRIX_CONSTRUCTORS = PROFILE.matrix_constructors
-        TEXTURE_FUNCTIONS = PROFILE.texture_functions
-        VECTOR_OPS = PROFILE.vector_ops
-        MATH_FUNCTIONS = PROFILE.math_functions
-
         protected
 
         def format_number(value)

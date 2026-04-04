@@ -179,7 +179,7 @@ class BaseEmitterTest < Test::Unit::TestCase
     assert_equal "arr[i]", result
   end
 
-  test "emit_with_return for if statement" do
+  test "emit_terminal_statement for if statement" do
     condition = RLSL::Prism::IR::BoolLiteral.new(true)
     then_branch = RLSL::Prism::IR::Block.new([
       RLSL::Prism::IR::Literal.new(1.0, :float)
@@ -189,17 +189,17 @@ class BaseEmitterTest < Test::Unit::TestCase
     ])
     if_stmt = RLSL::Prism::IR::IfStatement.new(condition, then_branch, else_branch)
 
-    result = @emitter.send(:emit_with_return, if_stmt)
+    result = @emitter.send(:emit_terminal_statement, if_stmt)
     assert result.include?("if (1)")
     assert result.include?("return 1.0f")
     assert result.include?("return 0.0f")
   end
 
-  test "emit_with_return for global decl" do
+  test "emit_terminal_statement for global decl" do
     init = RLSL::Prism::IR::Literal.new(1.0, :float)
     decl = RLSL::Prism::IR::GlobalDecl.new(:X, init)
 
-    result = @emitter.send(:emit_with_return, decl)
+    result = @emitter.send(:emit_terminal_statement, decl)
     assert result.include?("X")
   end
 

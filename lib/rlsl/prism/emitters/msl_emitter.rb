@@ -34,14 +34,10 @@ module RLSL
           }
         ).freeze
 
-        TYPE_MAP = PROFILE.type_map
-        VECTOR_CONSTRUCTORS = PROFILE.vector_constructors
-        MATRIX_CONSTRUCTORS = PROFILE.matrix_constructors
-        TEXTURE_FUNCTIONS = PROFILE.texture_functions
         protected
 
         def emit_texture_call(name, node)
-          return unless TEXTURE_FUNCTIONS.key?(name) && node.args.length >= 2
+          return unless profile.texture_functions.key?(name) && node.args.length >= 2
 
           texture = emit(node.args[0])
           uv = emit(node.args[1])

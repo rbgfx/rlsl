@@ -33,10 +33,6 @@ module RLSL
             "#{indent}return #{emit(node)};\n"
           end
 
-          def emit_with_return(node)
-            emit_terminal_statement(node)
-          end
-
           def emit_branch(node, needs_return:)
             with_indent do
               if node.is_a?(IR::Block)

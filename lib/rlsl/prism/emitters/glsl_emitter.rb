@@ -33,11 +33,6 @@ module RLSL
             textureLod: "textureLod"
           }
         ).freeze
-
-        TYPE_MAP = PROFILE.type_map
-        VECTOR_CONSTRUCTORS = PROFILE.vector_constructors
-        MATRIX_CONSTRUCTORS = PROFILE.matrix_constructors
-        TEXTURE_FUNCTIONS = PROFILE.texture_functions
       end
     end
   end
