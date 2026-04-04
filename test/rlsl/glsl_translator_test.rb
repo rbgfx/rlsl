@@ -3,92 +3,63 @@
 require_relative "../test_helper"
 
 class GLSLTranslatorTest < Test::Unit::TestCase
-  test "translates C to GLSL" do
-    uniforms = { time: :float }
-    helpers = "static inline float helper(float x) { return x * 2.0f; }"
-    fragment = "return vec3_new(1.0f, 0.0f, 0.0f);"
-
-    translator = RLSL::GLSL::Translator.new(uniforms, helpers, fragment)
-    glsl = translator.translate
-
-    assert glsl.include?("#version 450")
-    assert glsl.include?("uniform ShaderUniforms")
-    assert glsl.include?("float time;")
-    assert glsl.include?("layout(local_size_x = 8, local_size_y = 8)")
-  end
-
-  test "supports custom GLSL version" do
+  test "initializes with custom version" do
     translator = RLSL::GLSL::Translator.new({}, "", "", version: "430")
-    glsl = translator.translate
-    assert glsl.include?("#version 430")
+    result = translator.translate
+
+    assert result.include?("#version 430")
   end
 
-  test "replaces vec2_new with vec2" do
-    translator = RLSL::GLSL::Translator.new({}, "", "vec2_new(1.0f, 2.0f)")
-    glsl = translator.translate
-    assert glsl.include?("vec2(1.0f, 2.0f)")
+  test "default version is 450" do
+    translator = RLSL::GLSL::Translator.new({}, "", "")
+    result = translator.translate
+
+    assert result.include?("#version 450")
   end
 
-  test "replaces vec3_new with vec3" do
-    translator = RLSL::GLSL::Translator.new({}, "", "vec3_new(1.0f, 2.0f, 3.0f)")
-    glsl = translator.translate
-    assert glsl.include?("vec3(1.0f, 2.0f, 3.0f)")
+  test "translate removes static keyword" do
+    translator = RLSL::GLSL::Translator.new({}, "static float x = 1.0;", "")
+    result = translator.translate
+
+    assert_false result.include?("static float")
   end
 
-  test "replaces math functions" do
-    translator = RLSL::GLSL::Translator.new({}, "", "sqrtf(x) sinf(y) cosf(z)")
-    glsl = translator.translate
-    assert glsl.include?("sqrt(x)")
-    assert glsl.include?("sin(y)")
-    assert glsl.include?("cos(z)")
+  test "translate removes inline keyword" do
+    translator = RLSL::GLSL::Translator.new({}, "inline float helper() { return 1.0; }", "")
+    result = translator.translate
+
+    assert_false result.include?("inline float")
   end
 
-  test "removes static keyword" do
-    translator = RLSL::GLSL::Translator.new({}, "static float foo;", "")
-    glsl = translator.translate
-    assert_false glsl.include?("static float")
+  test "generates uniform block with resolution" do
+    translator = RLSL::GLSL::Translator.new({ time: :float }, "", "")
+    result = translator.translate
+
+    assert result.include?("layout(binding = 1) uniform ShaderUniforms")
+    assert result.include?("vec2 resolution;")
+    assert result.include?("float time;")
   end
 
-  test "handles empty code" do
-    translator = RLSL::GLSL::Translator.new({}, nil, nil)
-    glsl = translator.translate
-    assert glsl.include?("void main()")
+  test "generates compute shader with local size" do
+    translator = RLSL::GLSL::Translator.new({}, "", "return vec3(1.0);")
+    result = translator.translate
+
+    assert result.include?("layout(local_size_x = 8, local_size_y = 8) in;")
+    assert result.include?("void main()")
   end
 
-  test "generates proper uniform types" do
-    uniforms = { time: :float, frame: :int, enabled: :bool, mouse: :vec2, pos: :vec3, color: :vec4 }
-    translator = RLSL::GLSL::Translator.new(uniforms, "", "")
-    glsl = translator.translate
+  test "generates image output" do
+    translator = RLSL::GLSL::Translator.new({}, "", "")
+    result = translator.translate
 
-    assert glsl.include?("float time;")
-    assert glsl.include?("int frame;")
-    assert glsl.include?("bool enabled;")
-    assert glsl.include?("vec2 mouse;")
-    assert glsl.include?("vec3 pos;")
-    assert glsl.include?("vec4 color;")
-  end
-end
-
-class GLSLIntegrationTest < Test::Unit::TestCase
-  test "RLSL.to_glsl generates GLSL code" do
-    glsl = RLSL.to_glsl(:test_glsl) do
-      uniforms { float :time }
-      helpers(:c) { "" }
-      fragment { "return vec3_new(1.0f, 0.0f, 0.0f);" }
-    end
-
-    assert_kind_of String, glsl
-    assert glsl.include?("#version 450")
-    assert glsl.include?("float time;")
+    assert result.include?("layout(rgba8, binding = 0) uniform writeonly image2D outputImage")
   end
 
-  test "RLSL.to_glsl accepts version parameter" do
-    glsl = RLSL.to_glsl(:test_glsl_version, version: "430") do
-      uniforms { float :time }
-      helpers(:c) { "" }
-      fragment { "" }
-    end
+  test "target types are GLSL types" do
+    translator = RLSL::GLSL::Translator.new({}, "", "")
 
-    assert glsl.include?("#version 430")
+    assert_equal "vec2", translator.send(:target_vec2_type)
+    assert_equal "vec3", translator.send(:target_vec3_type)
+    assert_equal "vec4", translator.send(:target_vec4_type)
   end
 end

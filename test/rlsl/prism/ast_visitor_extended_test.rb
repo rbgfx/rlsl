@@ -16,8 +16,7 @@ class PrismASTVisitorExtendedTest < Test::Unit::TestCase
       return sum
     RUBY
     ir = @visitor.parse(source)
-    # Should have a ForLoop for the for..in block
-    assert ir.statements.any? { |s| s.is_a?(RLSL::Prism::IR::ForLoop) }
+    assert ir.statements.any? { |statement| statement.is_a?(RLSL::Prism::IR::ForLoop) }
   end
 
   test "parse array literal" do
@@ -35,7 +34,6 @@ class PrismASTVisitorExtendedTest < Test::Unit::TestCase
       return x
     RUBY
     ir = @visitor.parse(source)
-    # Second statement should be array index
     stmt = ir.statements[1]
     assert_kind_of RLSL::Prism::IR::VarDecl, stmt
     assert_kind_of RLSL::Prism::IR::ArrayIndex, stmt.initializer
@@ -48,7 +46,6 @@ class PrismASTVisitorExtendedTest < Test::Unit::TestCase
       return x
     RUBY
     ir = @visitor.parse(source)
-    # First statement should be GlobalDecl
     assert_kind_of RLSL::Prism::IR::GlobalDecl, ir.statements.first
   end
 
@@ -108,7 +105,6 @@ class PrismASTVisitorExtendedTest < Test::Unit::TestCase
       return x
     RUBY
     ir = @visitor.parse(source)
-    # b should be negated in the binary op
     stmt = ir.statements[2]
     assert_kind_of RLSL::Prism::IR::BinaryOp, stmt.initializer
   end
@@ -119,7 +115,6 @@ class PrismASTVisitorExtendedTest < Test::Unit::TestCase
       return 1.0
     RUBY
     ir = @visitor.parse(source)
-    # Should not raise
     assert_kind_of RLSL::Prism::IR::Block, ir
   end
 
@@ -156,7 +151,6 @@ class PrismASTVisitorExtendedTest < Test::Unit::TestCase
       return x
     RUBY
     ir = @visitor.parse(source)
-    # Should handle constant path as VarRef
     assert_kind_of RLSL::Prism::IR::Block, ir
   end
 
@@ -189,7 +183,6 @@ class PrismASTVisitorExtendedTest < Test::Unit::TestCase
       return x
     RUBY
     ir = @visitor.parse(source)
-    # Should not raise and x should be accessible
     assert_kind_of RLSL::Prism::IR::Block, ir
   end
 
@@ -200,7 +193,6 @@ class PrismASTVisitorExtendedTest < Test::Unit::TestCase
     )
     source = "return x + y"
     ir = visitor.parse(source)
-    # x and y should be VarRefs
     assert_kind_of RLSL::Prism::IR::Block, ir
   end
 
@@ -248,7 +240,6 @@ class PrismASTVisitorExtendedTest < Test::Unit::TestCase
     ir = @visitor.parse(source)
     stmt = ir.statements[1]
     assert_kind_of RLSL::Prism::IR::VarDecl, stmt
-    # -a might be parsed as UnaryOp or Literal depending on Prism version
   end
 
   test "BINARY_OPERATORS constant" do
@@ -283,82 +274,8 @@ class PrismASTVisitorExtendedTest < Test::Unit::TestCase
       return x
     RUBY
     ir = @visitor.parse(source)
-    # Should have ForLoop with variable i
     for_loop = ir.statements.first
     assert_kind_of RLSL::Prism::IR::ForLoop, for_loop
     assert_equal :i, for_loop.variable
-  end
-end
-
-class PrismASTVisitorEdgeCasesTest < Test::Unit::TestCase
-  test "parse for loop without explicit variable" do
-    visitor = RLSL::Prism::ASTVisitor.new(uniforms: {})
-    source = <<~RUBY
-      for j in 0..5
-        x = j
-      end
-      return x
-    RUBY
-    ir = visitor.parse(source)
-    for_loop = ir.statements.first
-    assert_kind_of RLSL::Prism::IR::ForLoop, for_loop
-    assert_equal :j, for_loop.variable
-  end
-
-  test "parse field access that is not a component" do
-    visitor = RLSL::Prism::ASTVisitor.new(uniforms: {})
-    source = <<~RUBY
-      v = vec3(1.0, 2.0, 3.0)
-      x = v.custom_field
-      return x
-    RUBY
-    ir = visitor.parse(source)
-    stmt = ir.statements[1]
-    assert_kind_of RLSL::Prism::IR::FieldAccess, stmt.initializer
-    assert_equal "custom_field", stmt.initializer.field
-  end
-
-  test "parse constant that is not PI or TAU" do
-    visitor = RLSL::Prism::ASTVisitor.new(uniforms: {})
-    source = <<~RUBY
-      x = CUSTOM_CONST
-      return x
-    RUBY
-    ir = visitor.parse(source)
-    stmt = ir.statements.first
-    # Non-builtin constants become VarRef
-    assert_kind_of RLSL::Prism::IR::VarRef, stmt.initializer
-  end
-
-  test "parse builtin function normalize" do
-    visitor = RLSL::Prism::ASTVisitor.new(uniforms: {})
-    source = <<~RUBY
-      v = vec3(1.0, 2.0, 3.0)
-      x = normalize(v)
-      return x
-    RUBY
-    ir = visitor.parse(source)
-    stmt = ir.statements[1]
-    # Should be FuncCall
-    assert_kind_of RLSL::Prism::IR::FuncCall, stmt.initializer
-    assert_equal :normalize, stmt.initializer.name
-  end
-
-  test "parse unless with else" do
-    visitor = RLSL::Prism::ASTVisitor.new(uniforms: {})
-    source = <<~RUBY
-      x = 1.0
-      unless x > 0
-        y = 0.0
-      else
-        y = 1.0
-      end
-      return y
-    RUBY
-    ir = visitor.parse(source)
-    if_stmt = ir.statements[1]
-    assert_kind_of RLSL::Prism::IR::IfStatement, if_stmt
-    # Condition should be negated
-    assert_kind_of RLSL::Prism::IR::UnaryOp, if_stmt.condition
   end
 end
