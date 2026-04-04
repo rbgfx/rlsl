@@ -10,14 +10,29 @@ module RLSL
     :vector_size,
     :metal_alignment,
     :metal_size,
+    :compiled_supported,
+    :runtime_supported,
+    :function_shorthand,
     keyword_init: true
   ) do
     def compiled?
-      !wrapper_kind.nil?
+      compiled_supported
     end
 
     def metal_packable?
       !metal_alignment.nil? && !metal_size.nil?
+    end
+
+    def runtime_supported?
+      runtime_supported
+    end
+
+    def function_shorthand?
+      function_shorthand
+    end
+
+    def target_supported?(target)
+      !public_send(:"#{target}_type").nil?
     end
   end
 
@@ -43,7 +58,10 @@ module RLSL
       msl_type: "float",
       wrapper_kind: :float,
       metal_alignment: 4,
-      metal_size: 4
+      metal_size: 4,
+      compiled_supported: true,
+      runtime_supported: true,
+      function_shorthand: true
     ),
     vec2: UniformTypeSpec.new(
       c_type: "vec2",
@@ -53,7 +71,10 @@ module RLSL
       wrapper_kind: :vector,
       vector_size: 2,
       metal_alignment: 8,
-      metal_size: 8
+      metal_size: 8,
+      compiled_supported: true,
+      runtime_supported: true,
+      function_shorthand: true
     ),
     vec3: UniformTypeSpec.new(
       c_type: "vec3",
@@ -63,7 +84,10 @@ module RLSL
       wrapper_kind: :vector,
       vector_size: 3,
       metal_alignment: 16,
-      metal_size: 16
+      metal_size: 16,
+      compiled_supported: true,
+      runtime_supported: true,
+      function_shorthand: true
     ),
     vec4: UniformTypeSpec.new(
       c_type: "vec4",
@@ -73,7 +97,10 @@ module RLSL
       wrapper_kind: :vector,
       vector_size: 4,
       metal_alignment: 16,
-      metal_size: 16
+      metal_size: 16,
+      compiled_supported: true,
+      runtime_supported: true,
+      function_shorthand: true
     ),
     int: UniformTypeSpec.new(
       c_type: "int",
@@ -82,7 +109,10 @@ module RLSL
       msl_type: "int",
       wrapper_kind: :int,
       metal_alignment: 4,
-      metal_size: 4
+      metal_size: 4,
+      compiled_supported: true,
+      runtime_supported: true,
+      function_shorthand: true
     ),
     bool: UniformTypeSpec.new(
       c_type: "int",
@@ -91,31 +121,46 @@ module RLSL
       msl_type: "bool",
       wrapper_kind: :bool,
       metal_alignment: 4,
-      metal_size: 4
+      metal_size: 4,
+      compiled_supported: true,
+      runtime_supported: true,
+      function_shorthand: true
     ),
     mat2: UniformTypeSpec.new(
       c_type: "mat2",
       glsl_type: "mat2",
       wgsl_type: "mat2x2<f32>",
-      msl_type: "float2x2"
+      msl_type: "float2x2",
+      compiled_supported: false,
+      runtime_supported: false,
+      function_shorthand: true
     ),
     mat3: UniformTypeSpec.new(
       c_type: "mat3",
       glsl_type: "mat3",
       wgsl_type: "mat3x3<f32>",
-      msl_type: "float3x3"
+      msl_type: "float3x3",
+      compiled_supported: false,
+      runtime_supported: false,
+      function_shorthand: true
     ),
     mat4: UniformTypeSpec.new(
       c_type: "mat4",
       glsl_type: "mat4",
       wgsl_type: "mat4x4<f32>",
-      msl_type: "float4x4"
+      msl_type: "float4x4",
+      compiled_supported: false,
+      runtime_supported: false,
+      function_shorthand: true
     ),
     sampler2D: UniformTypeSpec.new(
       c_type: "sampler2D",
       glsl_type: "sampler2D",
       wgsl_type: "texture_2d<f32>",
-      msl_type: nil
+      msl_type: nil,
+      compiled_supported: false,
+      runtime_supported: false,
+      function_shorthand: true
     )
   }.transform_values(&:freeze).freeze
 
@@ -135,6 +180,10 @@ module RLSL
       fetch(type).c_type
     end
 
+    def compiled_types
+      UNIFORM_TYPE_SPECS.select { |_type, spec| spec.compiled? }.keys.freeze
+    end
+
     def compiled_spec(type)
       spec = fetch(type)
       return spec if spec.compiled?
@@ -147,6 +196,14 @@ module RLSL
       return spec if spec.metal_packable?
 
       raise ArgumentError, "Unsupported Metal uniform type: #{type}"
+    end
+
+    def runtime_types
+      UNIFORM_TYPE_SPECS.select { |_type, spec| spec.runtime_supported? }.keys.freeze
+    end
+
+    def function_shorthand_types
+      UNIFORM_TYPE_SPECS.select { |_type, spec| spec.function_shorthand? }.keys.freeze
     end
 
     def target_type(type, target)
@@ -171,6 +228,9 @@ module RLSL
       return value if type.nil?
 
       spec = fetch(type)
+      unless spec.runtime_supported?
+        raise ArgumentError, unsupported_runtime_type_message(type, shader_name)
+      end
 
       case spec.wrapper_kind
       when :float

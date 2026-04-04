@@ -38,6 +38,21 @@ class RLSLTypesTest < Test::Unit::TestCase
     assert_equal "int", spec.c_type
   end
 
+  test "compiled capability is explicit" do
+    assert_true RLSL::UniformTypes.fetch(:float).compiled?
+    assert_false RLSL::UniformTypes.fetch(:mat4).compiled?
+  end
+
+  test "runtime capability is explicit" do
+    assert_true RLSL::UniformTypes.fetch(:vec3).runtime_supported?
+    assert_false RLSL::UniformTypes.fetch(:sampler2D).runtime_supported?
+  end
+
+  test "target capability is explicit" do
+    assert_true RLSL::UniformTypes.fetch(:vec4).target_supported?(:wgsl)
+    assert_false RLSL::UniformTypes.fetch(:sampler2D).target_supported?(:msl)
+  end
+
   test "C_TYPES contains mat2 definition" do
     assert RLSL::C_TYPES.include?("typedef struct { float m[4]; } mat2;")
   end
@@ -108,5 +123,17 @@ class TypeMappingTest < Test::Unit::TestCase
     assert_raise(ArgumentError) do
       RLSL::UniformTypes.compiled_spec(:mat4)
     end
+  end
+
+  test "compiled_types only includes compiled-compatible uniforms" do
+    assert_equal %i[float vec2 vec3 vec4 int bool], RLSL::UniformTypes.compiled_types
+  end
+
+  test "runtime_types only includes runtime-compatible uniforms" do
+    assert_equal %i[float vec2 vec3 vec4 int bool], RLSL::UniformTypes.runtime_types
+  end
+
+  test "function_shorthand_types includes the full DSL surface" do
+    assert_equal %i[float vec2 vec3 vec4 int bool mat2 mat3 mat4 sampler2D], RLSL::UniformTypes.function_shorthand_types
   end
 end

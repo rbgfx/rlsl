@@ -55,6 +55,21 @@ class FunctionContextTest < Test::Unit::TestCase
     assert_equal({ returns: :vec4 }, @ctx.functions[:get_clip_pos])
   end
 
+  test "int shorthand registers function" do
+    @ctx.int(:frame_index)
+    assert_equal({ returns: :int }, @ctx.functions[:frame_index])
+  end
+
+  test "bool shorthand registers function" do
+    @ctx.bool(:is_enabled)
+    assert_equal({ returns: :bool }, @ctx.functions[:is_enabled])
+  end
+
+  test "mat4 shorthand registers function" do
+    @ctx.mat4(:transform)
+    assert_equal({ returns: :mat4 }, @ctx.functions[:transform])
+  end
+
   test "define registers function with return type only" do
     @ctx.define(:path_point, returns: :vec3)
     assert_equal({ returns: :vec3, params: {} }, @ctx.functions[:path_point])
@@ -82,13 +97,25 @@ class FunctionContextTest < Test::Unit::TestCase
     assert @ctx.functions.key?(:my_func)
   end
 
+  test "define normalizes parameter names to symbols" do
+    @ctx.define(:noise_a, returns: :float, params: { "uv" => :vec2 })
+    assert_equal({ returns: :float, params: { uv: :vec2 } }, @ctx.functions[:noise_a])
+  end
+
+  test "define rejects unsupported types" do
+    assert_raise(ArgumentError) do
+      @ctx.define(:broken, returns: :unknown)
+    end
+  end
+
   test "multiple registrations can be combined" do
     @ctx.float(:f1)
     @ctx.vec2(:v2)
     @ctx.vec3(:v3)
     @ctx.vec4(:v4)
+    @ctx.bool(:flag)
     @ctx.define(:custom, returns: :float, params: { x: :float })
 
-    assert_equal 5, @ctx.functions.size
+    assert_equal 6, @ctx.functions.size
   end
 end
