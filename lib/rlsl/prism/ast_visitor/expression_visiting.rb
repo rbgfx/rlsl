@@ -33,6 +33,12 @@ module RLSL
         end
 
         def visit_call(node)
+          return visit_call_with_block(node) if node.block
+
+          visit_plain_call(node)
+        end
+
+        def visit_plain_call(node)
           method_name = node.name.to_s
           receiver = normalize_expression(visit(node.receiver)) if node.receiver
           args = node.arguments&.arguments&.map { |arg| normalize_expression(visit(arg)) } || []

@@ -58,7 +58,7 @@ module RLSL
         end
 
         def visit_call_with_block(node)
-          return visit_call(node) unless times_loop?(node)
+          return visit_plain_call(node) unless times_loop?(node)
 
           count = visit(node.receiver)
           block = visit(node.block)

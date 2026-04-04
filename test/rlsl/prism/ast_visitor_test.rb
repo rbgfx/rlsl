@@ -123,6 +123,18 @@ class PrismASTVisitorExtendedTest < Test::Unit::TestCase
     assert_kind_of RLSL::Prism::IR::Block, ir
   end
 
+  test "parse times block as for loop" do
+    source = <<~RUBY
+      3.times do |i|
+        x = i
+      end
+      return 1.0
+    RUBY
+    ir = @visitor.parse(source)
+
+    assert_kind_of RLSL::Prism::IR::ForLoop, ir.statements.first
+  end
+
   test "parse else clause" do
     source = <<~RUBY
       if x > 0
