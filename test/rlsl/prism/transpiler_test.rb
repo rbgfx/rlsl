@@ -172,36 +172,36 @@ class PrismTranspilerTest < Test::Unit::TestCase
   end
 end
 
-class PrismTranspilerExtractBlockBodyTest < Test::Unit::TestCase
-  def setup
-    @transpiler = RLSL::Prism::Transpiler.new
+class PrismSourceUnitTest < Test::Unit::TestCase
+  test "from_source with parameters" do
+    unit = RLSL::Prism::SourceUnit.from_source("|x, y|\nx + y")
+    assert_equal [:x, :y], unit.params
+    assert unit.body.include?("+")
   end
 
-  test "extract_block_body with parameters" do
-    source = "|x, y|\nx + y"
-    params, body = @transpiler.send(:extract_block_body, source)
-    assert_equal [:x, :y], params
-    assert body.include?("+")
+  test "from_source without parameters" do
+    unit = RLSL::Prism::SourceUnit.from_source("x = 1.0\nreturn x")
+    assert_equal [], unit.params
+    assert unit.body.include?("x = 1.0")
   end
 
-  test "extract_block_body without parameters" do
-    source = "x = 1.0\nreturn x"
-    params, body = @transpiler.send(:extract_block_body, source)
-    assert_equal [], params
-    assert body.include?("x = 1.0")
+  test "from_source trims empty lines" do
+    unit = RLSL::Prism::SourceUnit.from_source("\n\n  x = 1.0  \n\n")
+    assert_equal "x = 1.0", unit.body.strip
   end
 
-  test "extract_block_body trims empty lines" do
-    source = "\n\n  x = 1.0  \n\n"
-    params, body = @transpiler.send(:extract_block_body, source)
-    assert_equal "x = 1.0", body.strip
+  test "from_source handles single line" do
+    unit = RLSL::Prism::SourceUnit.from_source("return 1.0")
+    assert_equal [], unit.params
+    assert_equal "return 1.0", unit.body
   end
 
-  test "extract_block_body handles single line" do
-    source = "return 1.0"
-    params, body = @transpiler.send(:extract_block_body, source)
-    assert_equal [], params
-    assert_equal "return 1.0", body
+  test "without_params clears params and keeps body" do
+    unit = RLSL::Prism::SourceUnit.from_source("|x|\nreturn x")
+    helper_unit = unit.without_params
+
+    assert_equal [], helper_unit.params
+    assert_equal "return x", helper_unit.body
   end
 end
 

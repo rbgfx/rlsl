@@ -2,6 +2,7 @@
 
 require "prism"
 
+require_relative "source_unit"
 require_relative "source_extractor/block_locator"
 
 module RLSL
@@ -14,10 +15,14 @@ module RLSL
       end
 
       def extract(block)
+        extract_unit(block).to_source
+      end
+
+      def extract_unit(block)
         file, line_num = block.source_location
         raise SourceNotAvailable, "Block source location not available" unless file && File.exist?(file)
 
-        @block_locator.extract(File.read(file), line_num)
+        @block_locator.extract_unit(File.read(file), line_num)
       end
 
       def extract_from_string(source)

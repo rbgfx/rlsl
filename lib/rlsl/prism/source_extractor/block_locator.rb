@@ -5,13 +5,17 @@ module RLSL
     class SourceExtractor
       class BlockLocator
         def extract(source, start_line)
+          extract_unit(source, start_line).to_source
+        end
+
+        def extract_unit(source, start_line)
           parsed = ::Prism.parse(source)
           raise SourceNotAvailable, "Unable to parse block source" unless parsed.success?
 
           block = block_at_line(parsed.value, start_line)
           raise SourceNotAvailable, "Unable to locate block source" unless block
 
-          normalize(block)
+          SourceUnit.from_block(block)
         end
 
         private
@@ -24,18 +28,6 @@ module RLSL
 
           nil
         end
-
-        def normalize(block)
-          parts = []
-          params = block.parameters&.slice
-          body = block.body&.slice.to_s
-
-          parts << params if params && !params.empty?
-          parts << body unless body.empty?
-
-          parts.join("\n")
-        end
-
         def each_node(node)
           return enum_for(:each_node, node) unless block_given?
           return unless node

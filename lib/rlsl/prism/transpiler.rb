@@ -3,6 +3,7 @@
 require "prism"
 
 require_relative "ir/nodes"
+require_relative "source_unit"
 require_relative "source_extractor"
 require_relative "builtins"
 require_relative "ast_visitor"
@@ -17,8 +18,6 @@ require_relative "emitters/glsl_emitter"
 module RLSL
   module Prism
     class Transpiler
-      SourceUnit = Struct.new(:params, :body, keyword_init: true)
-
       TARGETS = {
         c: Emitters::CEmitter,
         msl: Emitters::MSLEmitter,
@@ -36,7 +35,9 @@ module RLSL
       end
 
       def parse_block(block)
-        parse_source(@source_extractor.extract(block))
+        @ir = build_ir(@source_extractor.extract_unit(block))
+        infer_ir(@ir)
+        @ir
       end
 
       def parse_source(source)
@@ -63,7 +64,7 @@ module RLSL
       end
 
       def transpile_helpers(block, target, function_signatures = {})
-        @ir = build_ir(helper_source_unit(@source_extractor.extract(block)))
+        @ir = build_ir(@source_extractor.extract_unit(block).without_params)
         apply_function_signatures(@ir, function_signatures)
         infer_ir(@ir)
 
@@ -73,12 +74,7 @@ module RLSL
       private
 
       def source_unit(source)
-        params, body = extract_block_body(source)
-        SourceUnit.new(params: params, body: body)
-      end
-
-      def helper_source_unit(source)
-        SourceUnit.new(params: [], body: source_unit(source).body)
+        SourceUnit.from_source(source)
       end
 
       def build_ir(unit)
@@ -119,25 +115,8 @@ module RLSL
       end
 
       def extract_block_body(source)
-        lines = source.strip.lines
-        params = []
-
-        first_line = lines.first&.strip || ""
-
-        if first_line.start_with?("|")
-          param_end = first_line.index("|", 1)
-          if param_end
-            param_str = first_line[1...param_end]
-            params = param_str.split(",").map { |p| p.strip.to_sym }
-            lines[0] = first_line[(param_end + 1)..]
-          end
-        end
-
-        lines.shift while lines.first&.strip&.empty?
-        lines.pop while lines.last&.strip&.empty?
-
-        body = lines.join.strip
-        [params, body]
+        unit = source_unit(source)
+        [unit.params, unit.body]
       end
     end
   end
