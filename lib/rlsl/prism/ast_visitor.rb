@@ -3,6 +3,7 @@
 require "prism"
 require "set"
 
+require_relative "ast_visitor/visitor_registry"
 require_relative "ast_visitor/scope_context"
 require_relative "ast_visitor/expression_visiting"
 require_relative "ast_visitor/control_flow_visiting"
@@ -15,47 +16,16 @@ module RLSL
     class ASTVisitor
       BINARY_OPERATORS = %w[+ - * / % == != < > <= >= && ||].freeze
       UNARY_OPERATORS = %w[- !].freeze
-      TRANSPARENT_NODES = [
-        (::Prism::ArgumentsNode if defined?(::Prism::ArgumentsNode)),
-        (::Prism::BlockParametersNode if defined?(::Prism::BlockParametersNode)),
-        (::Prism::ParametersNode if defined?(::Prism::ParametersNode))
-      ].compact.freeze
-      NODE_VISITORS = {}.tap do |visitors|
-        visitors[::Prism::ProgramNode] = :visit_program if defined?(::Prism::ProgramNode)
-        visitors[::Prism::StatementsNode] = :visit_statements if defined?(::Prism::StatementsNode)
-        visitors[::Prism::IntegerNode] = :visit_integer if defined?(::Prism::IntegerNode)
-        visitors[::Prism::FloatNode] = :visit_float if defined?(::Prism::FloatNode)
-        visitors[::Prism::RationalNode] = :visit_rational if defined?(::Prism::RationalNode)
-        visitors[::Prism::TrueNode] = :visit_true if defined?(::Prism::TrueNode)
-        visitors[::Prism::FalseNode] = :visit_false if defined?(::Prism::FalseNode)
-        visitors[::Prism::ParenthesesNode] = :visit_parentheses if defined?(::Prism::ParenthesesNode)
-        visitors[::Prism::CallNode] = :visit_call if defined?(::Prism::CallNode)
-        visitors[::Prism::AndNode] = :visit_and if defined?(::Prism::AndNode)
-        visitors[::Prism::OrNode] = :visit_or if defined?(::Prism::OrNode)
-        visitors[::Prism::NotNode] = :visit_not if defined?(::Prism::NotNode)
-        visitors[::Prism::ArrayNode] = :visit_array if defined?(::Prism::ArrayNode)
-        visitors[::Prism::ConstantReadNode] = :visit_constant_read if defined?(::Prism::ConstantReadNode)
-        visitors[::Prism::ConstantPathNode] = :visit_constant_path if defined?(::Prism::ConstantPathNode)
-        visitors[::Prism::GlobalVariableReadNode] = :visit_global_variable_read if defined?(::Prism::GlobalVariableReadNode)
-        visitors[::Prism::BlockNode] = :visit_block if defined?(::Prism::BlockNode)
-        visitors[::Prism::LambdaNode] = :visit_lambda if defined?(::Prism::LambdaNode)
-        visitors[::Prism::IfNode] = :visit_if if defined?(::Prism::IfNode)
-        visitors[::Prism::ElseNode] = :visit_else if defined?(::Prism::ElseNode)
-        visitors[::Prism::UnlessNode] = :visit_unless if defined?(::Prism::UnlessNode)
-        visitors[::Prism::ReturnNode] = :visit_return if defined?(::Prism::ReturnNode)
-        visitors[::Prism::RangeNode] = :visit_range if defined?(::Prism::RangeNode)
-        visitors[::Prism::ForNode] = :visit_for if defined?(::Prism::ForNode)
-        visitors[::Prism::WhileNode] = :visit_while if defined?(::Prism::WhileNode)
-        visitors[::Prism::BreakNode] = :visit_break if defined?(::Prism::BreakNode)
-        visitors[::Prism::LocalVariableWriteNode] = :visit_local_variable_write if defined?(::Prism::LocalVariableWriteNode)
-        visitors[::Prism::LocalVariableOperatorWriteNode] = :visit_local_variable_operator_write if defined?(::Prism::LocalVariableOperatorWriteNode)
-        visitors[::Prism::LocalVariableReadNode] = :visit_local_variable_read if defined?(::Prism::LocalVariableReadNode)
-        visitors[::Prism::DefNode] = :visit_def if defined?(::Prism::DefNode)
-        visitors[::Prism::GlobalVariableWriteNode] = :visit_global_variable_write if defined?(::Prism::GlobalVariableWriteNode)
-        visitors[::Prism::ConstantWriteNode] = :visit_constant_write if defined?(::Prism::ConstantWriteNode)
-        visitors[::Prism::MultiWriteNode] = :visit_multi_write if defined?(::Prism::MultiWriteNode)
-        visitors[::Prism::LocalVariableTargetNode] = :visit_local_variable_target if defined?(::Prism::LocalVariableTargetNode)
-      end.freeze
+      TRANSPARENT_NODES = VisitorRegistry::TRANSPARENT_NODES
+      NODE_VISITORS = VisitorRegistry.build(
+        {}.tap do |visitors|
+          visitors[::Prism::ProgramNode] = :visit_program if defined?(::Prism::ProgramNode)
+          visitors[::Prism::StatementsNode] = :visit_statements if defined?(::Prism::StatementsNode)
+        end,
+        ExpressionVisiting::VISITORS,
+        ControlFlowVisiting::VISITORS,
+        DefinitionVisiting::VISITORS
+      )
 
       include ExpressionVisiting
       include ControlFlowVisiting

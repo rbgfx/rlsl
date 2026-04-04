@@ -4,6 +4,19 @@ module RLSL
   module Prism
     class ASTVisitor
       module ControlFlowVisiting
+        VISITORS = {}.tap do |visitors|
+          visitors[::Prism::BlockNode] = :visit_block if defined?(::Prism::BlockNode)
+          visitors[::Prism::LambdaNode] = :visit_lambda if defined?(::Prism::LambdaNode)
+          visitors[::Prism::IfNode] = :visit_if if defined?(::Prism::IfNode)
+          visitors[::Prism::ElseNode] = :visit_else if defined?(::Prism::ElseNode)
+          visitors[::Prism::UnlessNode] = :visit_unless if defined?(::Prism::UnlessNode)
+          visitors[::Prism::ReturnNode] = :visit_return if defined?(::Prism::ReturnNode)
+          visitors[::Prism::RangeNode] = :visit_range if defined?(::Prism::RangeNode)
+          visitors[::Prism::ForNode] = :visit_for if defined?(::Prism::ForNode)
+          visitors[::Prism::WhileNode] = :visit_while if defined?(::Prism::WhileNode)
+          visitors[::Prism::BreakNode] = :visit_break if defined?(::Prism::BreakNode)
+        end.freeze
+
         private
 
         def visit_block(node)

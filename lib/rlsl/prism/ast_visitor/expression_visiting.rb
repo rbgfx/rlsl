@@ -4,6 +4,23 @@ module RLSL
   module Prism
     class ASTVisitor
       module ExpressionVisiting
+        VISITORS = {}.tap do |visitors|
+          visitors[::Prism::IntegerNode] = :visit_integer if defined?(::Prism::IntegerNode)
+          visitors[::Prism::FloatNode] = :visit_float if defined?(::Prism::FloatNode)
+          visitors[::Prism::RationalNode] = :visit_rational if defined?(::Prism::RationalNode)
+          visitors[::Prism::TrueNode] = :visit_true if defined?(::Prism::TrueNode)
+          visitors[::Prism::FalseNode] = :visit_false if defined?(::Prism::FalseNode)
+          visitors[::Prism::ParenthesesNode] = :visit_parentheses if defined?(::Prism::ParenthesesNode)
+          visitors[::Prism::CallNode] = :visit_call if defined?(::Prism::CallNode)
+          visitors[::Prism::AndNode] = :visit_and if defined?(::Prism::AndNode)
+          visitors[::Prism::OrNode] = :visit_or if defined?(::Prism::OrNode)
+          visitors[::Prism::NotNode] = :visit_not if defined?(::Prism::NotNode)
+          visitors[::Prism::ArrayNode] = :visit_array if defined?(::Prism::ArrayNode)
+          visitors[::Prism::ConstantReadNode] = :visit_constant_read if defined?(::Prism::ConstantReadNode)
+          visitors[::Prism::ConstantPathNode] = :visit_constant_path if defined?(::Prism::ConstantPathNode)
+          visitors[::Prism::GlobalVariableReadNode] = :visit_global_variable_read if defined?(::Prism::GlobalVariableReadNode)
+        end.freeze
+
         private
 
         def visit_integer(node)
