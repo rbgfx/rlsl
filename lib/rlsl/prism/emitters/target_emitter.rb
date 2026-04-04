@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "target_profile"
+
 module RLSL
   module Prism
     module Emitters
@@ -7,19 +9,19 @@ module RLSL
         protected
 
         def type_name(type)
-          self.class::TYPE_MAP[type&.to_sym] || default_type_name
+          profile.type_map[type&.to_sym] || default_type_name
         end
 
         def emit_func_call(node)
           name = node.name.to_sym
 
-          constructor_name = self.class::VECTOR_CONSTRUCTORS[name] || self.class::MATRIX_CONSTRUCTORS[name]
+          constructor_name = profile.vector_constructors[name] || profile.matrix_constructors[name]
           return emit_named_call(constructor_name, node.args) if constructor_name
 
           texture_call = emit_texture_call(name, node)
           return texture_call if texture_call
 
-          emit_named_call(name, node.args)
+          emit_named_call(name, node.args, receiver: node.receiver)
         end
 
         def emit_binary_op(node)
@@ -29,18 +31,24 @@ module RLSL
         end
 
         def default_type_name
-          "float"
+          profile.default_type_name
         end
 
         def emit_texture_call(name, node)
-          return unless self.class::TEXTURE_FUNCTIONS.key?(name)
+          return unless profile.texture_functions.key?(name)
 
-          emit_named_call(self.class::TEXTURE_FUNCTIONS[name], node.args)
+          emit_named_call(profile.texture_functions[name], node.args)
         end
 
-        def emit_named_call(name, args)
-          rendered_args = args.map { |arg| emit(arg) }.join(", ")
-          "#{name}(#{rendered_args})"
+        def emit_named_call(name, args, receiver: nil)
+          rendered_args = []
+          rendered_args << emit(receiver) if receiver
+          rendered_args.concat(args.map { |arg| emit(arg) })
+          "#{name}(#{rendered_args.join(', ')})"
+        end
+
+        def profile
+          self.class::PROFILE
         end
       end
     end

@@ -4,37 +4,40 @@ module RLSL
   module Prism
     module Emitters
       class MSLEmitter < TargetEmitter
-        TYPE_MAP = {
-          float: "float",
-          int: "int",
-          bool: "bool",
-          vec2: "float2",
-          vec3: "float3",
-          vec4: "float4",
-          mat2: "float2x2",
-          mat3: "float3x3",
-          mat4: "float4x4",
-          sampler2D: "texture2d<float>"
-        }.freeze
+        PROFILE = TargetProfile.new(
+          type_map: {
+            float: "float",
+            int: "int",
+            bool: "bool",
+            vec2: "float2",
+            vec3: "float3",
+            vec4: "float4",
+            mat2: "float2x2",
+            mat3: "float3x3",
+            mat4: "float4x4",
+            sampler2D: "texture2d<float>"
+          },
+          vector_constructors: {
+            vec2: "float2",
+            vec3: "float3",
+            vec4: "float4"
+          },
+          matrix_constructors: {
+            mat2: "float2x2",
+            mat3: "float3x3",
+            mat4: "float4x4"
+          },
+          texture_functions: {
+            texture2D: "sample",
+            texture: "sample",
+            textureLod: "sample"
+          }
+        ).freeze
 
-        VECTOR_CONSTRUCTORS = {
-          vec2: "float2",
-          vec3: "float3",
-          vec4: "float4"
-        }.freeze
-
-        MATRIX_CONSTRUCTORS = {
-          mat2: "float2x2",
-          mat3: "float3x3",
-          mat4: "float4x4"
-        }.freeze
-
-        TEXTURE_FUNCTIONS = {
-          texture2D: "sample",
-          texture: "sample",
-          textureLod: "sample"
-        }.freeze
-
+        TYPE_MAP = PROFILE.type_map
+        VECTOR_CONSTRUCTORS = PROFILE.vector_constructors
+        MATRIX_CONSTRUCTORS = PROFILE.matrix_constructors
+        TEXTURE_FUNCTIONS = PROFILE.texture_functions
         protected
 
         def emit_texture_call(name, node)

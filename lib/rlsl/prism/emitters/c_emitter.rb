@@ -3,77 +3,77 @@
 module RLSL
   module Prism
     module Emitters
-      class CEmitter < BaseEmitter
-        TYPE_MAP = {
-          float: "float",
-          int: "int",
-          bool: "int",
-          vec2: "vec2",
-          vec3: "vec3",
-          vec4: "vec4",
-          mat2: "mat2",
-          mat3: "mat3",
-          mat4: "mat4",
-          sampler2D: "sampler2D"
-        }.freeze
+      class CEmitter < TargetEmitter
+        PROFILE = TargetProfile.new(
+          type_map: {
+            float: "float",
+            int: "int",
+            bool: "int",
+            vec2: "vec2",
+            vec3: "vec3",
+            vec4: "vec4",
+            mat2: "mat2",
+            mat3: "mat3",
+            mat4: "mat4",
+            sampler2D: "sampler2D"
+          },
+          vector_constructors: {
+            vec2: "vec2_new",
+            vec3: "vec3_new",
+            vec4: "vec4_new"
+          },
+          matrix_constructors: {
+            mat2: "mat2_new",
+            mat3: "mat3_new",
+            mat4: "mat4_new"
+          },
+          texture_functions: {
+            texture2D: "texture_sample",
+            texture: "texture_sample",
+            textureLod: "texture_sample_lod"
+          },
+          math_functions: {
+            sin: "sinf",
+            cos: "cosf",
+            tan: "tanf",
+            asin: "asinf",
+            acos: "acosf",
+            atan: "atanf",
+            atan2: "atan2f",
+            sqrt: "sqrtf",
+            pow: "powf",
+            exp: "expf",
+            log: "logf",
+            abs: "fabsf",
+            floor: "floorf",
+            ceil: "ceilf",
+            min: "fminf",
+            max: "fmaxf",
+            fract: "fract",
+            mod: "fmodf",
+            clamp: "clamp_f",
+            mix: "mix_f",
+            smoothstep: "smoothstep",
+            length: "vec_length",
+            normalize: "vec_normalize",
+            dot: "vec_dot"
+          },
+          vector_ops: {
+            "+" => "add",
+            "-" => "sub",
+            "*" => "mul",
+            "/" => "div"
+          }
+        ).freeze
 
-        VECTOR_CONSTRUCTORS = {
-          vec2: "vec2_new",
-          vec3: "vec3_new",
-          vec4: "vec4_new"
-        }.freeze
-
-        MATRIX_CONSTRUCTORS = {
-          mat2: "mat2_new",
-          mat3: "mat3_new",
-          mat4: "mat4_new"
-        }.freeze
-
-        TEXTURE_FUNCTIONS = {
-          texture2D: "texture_sample",
-          texture: "texture_sample",
-          textureLod: "texture_sample_lod"
-        }.freeze
-
-        VECTOR_OPS = {
-          "+" => "add",
-          "-" => "sub",
-          "*" => "mul",
-          "/" => "div"
-        }.freeze
-
-        MATH_FUNCTIONS = {
-          sin: "sinf",
-          cos: "cosf",
-          tan: "tanf",
-          asin: "asinf",
-          acos: "acosf",
-          atan: "atanf",
-          atan2: "atan2f",
-          sqrt: "sqrtf",
-          pow: "powf",
-          exp: "expf",
-          log: "logf",
-          abs: "fabsf",
-          floor: "floorf",
-          ceil: "ceilf",
-          min: "fminf",
-          max: "fmaxf",
-          fract: "fract",
-          mod: "fmodf",
-          clamp: "clamp_f",
-          mix: "mix_f",
-          smoothstep: "smoothstep",
-          length: "vec_length",
-          normalize: "vec_normalize",
-          dot: "vec_dot"
-        }.freeze
+        TYPE_MAP = PROFILE.type_map
+        VECTOR_CONSTRUCTORS = PROFILE.vector_constructors
+        MATRIX_CONSTRUCTORS = PROFILE.matrix_constructors
+        TEXTURE_FUNCTIONS = PROFILE.texture_functions
+        VECTOR_OPS = PROFILE.vector_ops
+        MATH_FUNCTIONS = PROFILE.math_functions
 
         protected
-
-        def type_name(type)
-          TYPE_MAP[type&.to_sym] || "float"
-        end
 
         def format_number(value)
           formatted = super(value)
@@ -107,8 +107,8 @@ module RLSL
             end
           end
 
-          if MATH_FUNCTIONS.key?(name)
-            func_name = MATH_FUNCTIONS[name]
+          if profile.math_functions.key?(name)
+            func_name = profile.math_functions[name]
 
             if name == :mix && node.args.first&.type
               first_type = node.args.first.type
@@ -128,8 +128,8 @@ module RLSL
           left_type = node.left.type
           op = node.operator
 
-          if vector_type?(left_type) && VECTOR_OPS.key?(op)
-            vec_func = "#{left_type}_#{VECTOR_OPS[op]}"
+          if vector_type?(left_type) && profile.vector_ops.key?(op)
+            vec_func = "#{left_type}_#{profile.vector_ops[op]}"
             left = emit(node.left)
             right = emit(node.right)
             return "#{vec_func}(#{left}, #{right})"

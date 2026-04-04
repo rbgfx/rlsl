@@ -4,37 +4,41 @@ module RLSL
   module Prism
     module Emitters
       class WGSLEmitter < TargetEmitter
-        TYPE_MAP = {
-          float: "f32",
-          int: "i32",
-          bool: "bool",
-          vec2: "vec2<f32>",
-          vec3: "vec3<f32>",
-          vec4: "vec4<f32>",
-          mat2: "mat2x2<f32>",
-          mat3: "mat3x3<f32>",
-          mat4: "mat4x4<f32>",
-          sampler2D: "texture_2d<f32>"
-        }.freeze
+        PROFILE = TargetProfile.new(
+          type_map: {
+            float: "f32",
+            int: "i32",
+            bool: "bool",
+            vec2: "vec2<f32>",
+            vec3: "vec3<f32>",
+            vec4: "vec4<f32>",
+            mat2: "mat2x2<f32>",
+            mat3: "mat3x3<f32>",
+            mat4: "mat4x4<f32>",
+            sampler2D: "texture_2d<f32>"
+          },
+          vector_constructors: {
+            vec2: "vec2<f32>",
+            vec3: "vec3<f32>",
+            vec4: "vec4<f32>"
+          },
+          matrix_constructors: {
+            mat2: "mat2x2<f32>",
+            mat3: "mat3x3<f32>",
+            mat4: "mat4x4<f32>"
+          },
+          texture_functions: {
+            texture2D: "textureSample",
+            texture: "textureSample",
+            textureLod: "textureSampleLevel"
+          },
+          default_type_name: "f32"
+        ).freeze
 
-        VECTOR_CONSTRUCTORS = {
-          vec2: "vec2<f32>",
-          vec3: "vec3<f32>",
-          vec4: "vec4<f32>"
-        }.freeze
-
-        MATRIX_CONSTRUCTORS = {
-          mat2: "mat2x2<f32>",
-          mat3: "mat3x3<f32>",
-          mat4: "mat4x4<f32>"
-        }.freeze
-
-        TEXTURE_FUNCTIONS = {
-          texture2D: "textureSample",
-          texture: "textureSample",
-          textureLod: "textureSampleLevel"
-        }.freeze
-
+        TYPE_MAP = PROFILE.type_map
+        VECTOR_CONSTRUCTORS = PROFILE.vector_constructors
+        MATRIX_CONSTRUCTORS = PROFILE.matrix_constructors
+        TEXTURE_FUNCTIONS = PROFILE.texture_functions
         protected
 
         def emit_var_decl(node)
@@ -86,10 +90,6 @@ module RLSL
             "#{indent}v#{index}: #{type_name(type)},"
           end.join("\n")
           "struct #{func_name}_result {\n#{fields}\n};\n"
-        end
-
-        def default_type_name
-          "f32"
         end
       end
     end
