@@ -3,14 +3,40 @@
 require_relative "type_inference/scope_stack"
 require_relative "type_inference/type_shapes"
 require_relative "type_inference/call_validator"
+require_relative "type_inference/type_environment"
 
 module RLSL
   module Prism
     class SignatureError < StandardError; end
 
     class TypeInference
+      INFERERS = {
+        IR::Block => :infer_block,
+        IR::VarDecl => :infer_var_decl,
+        IR::VarRef => :infer_var_ref,
+        IR::Literal => :infer_literal,
+        IR::BoolLiteral => :infer_bool_literal,
+        IR::BinaryOp => :infer_binary_op,
+        IR::UnaryOp => :infer_unary_op,
+        IR::FuncCall => :infer_func_call,
+        IR::FieldAccess => :infer_field_access,
+        IR::Swizzle => :infer_swizzle,
+        IR::IfStatement => :infer_if_statement,
+        IR::Ternary => :infer_ternary,
+        IR::Return => :infer_return,
+        IR::Assignment => :infer_assignment,
+        IR::ForLoop => :infer_for_loop,
+        IR::WhileLoop => :infer_while_loop,
+        IR::Parenthesized => :infer_parenthesized,
+        IR::FunctionDefinition => :infer_function_definition,
+        IR::ArrayLiteral => :infer_array_literal,
+        IR::ArrayIndex => :infer_array_index,
+        IR::GlobalDecl => :infer_global_decl,
+        IR::MultipleAssignment => :infer_multiple_assignment
+      }.freeze
+
       def initialize(uniforms = {}, custom_functions = {})
-        @scopes = ScopeStack.new
+        @types = TypeEnvironment.new
         @uniforms = uniforms
         @custom_functions = custom_functions
         @call_validator = CallValidator.new
@@ -21,11 +47,11 @@ module RLSL
       end
 
       def symbol_table
-        @scopes.to_h
+        @types.to_h
       end
 
       def register(name, type)
-        @scopes.register(name, type)
+        @types.register(name, type)
       end
 
       def register_function(name, returns:)
@@ -33,59 +59,16 @@ module RLSL
       end
 
       def lookup(name)
-        @scopes.lookup(name)
+        @types.lookup(name)
       end
 
       def infer(node, scoped: false)
-        case node
-        when IR::Block
-          infer_block(node, scoped: scoped)
-        when IR::VarDecl
-          infer_var_decl(node)
-        when IR::VarRef
-          infer_var_ref(node)
-        when IR::Literal
-          infer_literal(node)
-        when IR::BoolLiteral
-          node.type = :bool
-          node
-        when IR::BinaryOp
-          infer_binary_op(node)
-        when IR::UnaryOp
-          infer_unary_op(node)
-        when IR::FuncCall
-          infer_func_call(node)
-        when IR::FieldAccess
-          infer_field_access(node)
-        when IR::Swizzle
-          infer_swizzle(node)
-        when IR::IfStatement
-          infer_if_statement(node)
-        when IR::Ternary
-          infer_ternary(node)
-        when IR::Return
-          infer_return(node)
-        when IR::Assignment
-          infer_assignment(node)
-        when IR::ForLoop
-          infer_for_loop(node)
-        when IR::WhileLoop
-          infer_while_loop(node)
-        when IR::Parenthesized
-          infer_parenthesized(node)
-        when IR::FunctionDefinition
-          infer_function_definition(node)
-        when IR::ArrayLiteral
-          infer_array_literal(node)
-        when IR::ArrayIndex
-          infer_array_index(node)
-        when IR::GlobalDecl
-          infer_global_decl(node)
-        when IR::MultipleAssignment
-          infer_multiple_assignment(node)
-        else
-          node
-        end
+        inferer = INFERERS[node.class]
+        return node unless inferer
+
+        return infer_block(node, scoped: scoped) if inferer == :infer_block
+
+        send(inferer, node)
       end
 
       private
@@ -111,6 +94,11 @@ module RLSL
       end
 
       def infer_literal(node)
+        node
+      end
+
+      def infer_bool_literal(node)
+        node.type = :bool
         node
       end
 
@@ -254,8 +242,10 @@ module RLSL
         array_type = node.array.type
         if TypeShapes.array?(array_type)
           node.type = TypeShapes.element_type(array_type)
+        elsif node.array.is_a?(IR::VarRef)
+          node.type = @types.array_element_type(node.array.name) || :float
         else
-          node.type = lookup("#{node.array.name}_element_type") || :float
+          node.type = :float
         end
         node
       end
@@ -273,11 +263,6 @@ module RLSL
         end
 
         register(node.name, node.type) if node.type
-
-        if node.element_type
-          register("#{node.name}_element_type".to_sym, node.element_type)
-        end
-
         node
       end
 
@@ -315,24 +300,20 @@ module RLSL
       end
 
       def infer_in_scope(initial_scope = nil)
-        if initial_scope
-          @scopes.push(initial_scope)
-        else
-          @scopes.push
-        end
+        initial_scope ? @types.push(initial_scope) : @types.push
 
         yield
       ensure
-        @scopes.pop
+        @types.pop
       end
 
       def infer_with_optional_scope(scoped)
         return yield unless scoped
 
-        @scopes.push
+        @types.push
         yield
       ensure
-        @scopes.pop if scoped
+        @types.pop if scoped
       end
     end
   end
