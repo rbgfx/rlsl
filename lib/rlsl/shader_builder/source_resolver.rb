@@ -12,21 +12,40 @@ module RLSL
         [helpers_code(target), fragment_code(target)]
       end
 
-      def helpers_code(target)
-        return "" unless @definition.helpers_block
-        return @definition.helpers_block.call unless ruby_helpers?
+      def translation_sources_for(target)
+        [helpers_source(target), fragment_source(target)]
+      end
 
-        transpiler.transpile_helpers(@definition.helpers_block, target, @definition.custom_functions)
+      def helpers_code(target)
+        helpers_source(target).code
       end
 
       def fragment_code(target)
-        return "" unless @definition.fragment_block
-        return @definition.fragment_block.call unless ruby_fragment?
-
-        transpiler.transpile(@definition.fragment_block, target)
+        fragment_source(target).code
       end
 
       private
+
+      def helpers_source(target)
+        return source_snippet("") unless @definition.helpers_block
+        return source_snippet(@definition.helpers_block.call) unless ruby_helpers?
+
+        source_snippet(
+          transpiler.transpile_helpers(@definition.helpers_block, target, @definition.custom_functions),
+          format: :target
+        )
+      end
+
+      def fragment_source(target)
+        return source_snippet("") unless @definition.fragment_block
+        return source_snippet(@definition.fragment_block.call) unless ruby_fragment?
+
+        source_snippet(transpiler.transpile(@definition.fragment_block, target), format: :target)
+      end
+
+      def source_snippet(code, format: :legacy)
+        BaseTranslator::SourceSnippet.new(code: code.to_s, format: format)
+      end
 
       def transpiler
         @transpiler ||= @transpiler_class.new(@definition.uniforms, @definition.custom_functions)

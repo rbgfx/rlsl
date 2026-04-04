@@ -4,6 +4,12 @@ require_relative "base_translator/code_rewriter"
 
 module RLSL
   class BaseTranslator
+    SourceSnippet = Struct.new(:code, :format, keyword_init: true) do
+      def target_code?
+        format == :target
+      end
+    end
+
     TargetProfile = Struct.new(
       :uniform_target,
       :identifier_replacements,
@@ -26,22 +32,24 @@ module RLSL
 
     def initialize(uniforms, helpers_code, fragment_code)
       @uniforms = uniforms
-      @helpers_code = helpers_code || ""
-      @fragment_code = fragment_code || ""
+      @helpers_source = normalize_source(helpers_code)
+      @fragment_source = normalize_source(fragment_code)
     end
 
     def translate
-      helpers_translated = translate_code(@helpers_code)
-      fragment_translated = translate_code(@fragment_code)
+      helpers_translated = translate_code(@helpers_source)
+      fragment_translated = translate_code(@fragment_source)
       generate_shader(helpers_translated, fragment_translated)
     end
 
     protected
 
-    def translate_code(code)
-      return "" if code.nil? || code.empty?
+    def translate_code(source)
+      snippet = normalize_source(source)
+      return "" if snippet.code.empty?
+      return snippet.code if snippet.target_code?
 
-      profile.translate(code)
+      profile.translate(snippet.code)
     end
 
     def generate_shader(_helpers, _fragment)
@@ -191,6 +199,15 @@ module RLSL
 
         "(#{arguments[0]} #{operator} #{arguments[1]})"
       end
+    end
+
+    private
+
+    def normalize_source(source)
+      return SourceSnippet.new(code: "", format: :legacy) if source.nil?
+      return source if source.is_a?(SourceSnippet)
+
+      SourceSnippet.new(code: source.to_s, format: :legacy)
     end
   end
 end

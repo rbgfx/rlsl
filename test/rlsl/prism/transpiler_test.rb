@@ -249,6 +249,24 @@ class PrismSourceUnitTest < Test::Unit::TestCase
     assert_equal [], helper_unit.params
     assert_equal "return x", helper_unit.body
   end
+
+  test "from_source keeps nested blocks in the body" do
+    unit = RLSL::Prism::SourceUnit.from_source(<<~RUBY)
+      values = [1.0].map do |x|
+        x + 1.0
+      end
+      values
+    RUBY
+
+    assert_include unit.body, "values = [1.0].map do |x|"
+    assert_include unit.body, "values"
+  end
+
+  test "from_source raises for invalid body" do
+    assert_raise(ArgumentError) do
+      RLSL::Prism::SourceUnit.from_source("if")
+    end
+  end
 end
 
 class PrismTranspilerHelpersTest < Test::Unit::TestCase

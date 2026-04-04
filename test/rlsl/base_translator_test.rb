@@ -64,6 +64,16 @@ class BaseTranslatorTest < Test::Unit::TestCase
     assert result.include?("vec3<f32>(mix(a, b, t), sin(x), cos(y))")
   end
 
+  test "translate leaves Prism-targeted snippets untouched" do
+    targeted = RLSL::BaseTranslator::SourceSnippet.new(code: "int x = 1;", format: :target)
+    translator = TestTranslator.new({}, targeted, targeted)
+
+    result = translator.translate
+
+    assert_include result, "HELPERS: int x = 1;"
+    assert_include result, "FRAGMENT: int x = 1;"
+  end
+
   test "translate leaves comments and strings unchanged" do
     translator = TestTranslator.new(
       {},
