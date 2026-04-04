@@ -180,7 +180,7 @@ class PrismTypeInferenceTest < Test::Unit::TestCase
     infer(direct_index)
     infer(metadata_index)
 
-    assert_equal :array_float, array_literal.type
+    assert_equal array_type(:float), array_literal.type
     assert_equal :float, direct_index.type
     assert_equal :vec3, metadata_index.type
   end
@@ -195,10 +195,10 @@ class PrismTypeInferenceTest < Test::Unit::TestCase
     infer(array_decl)
     infer(scalar_decl)
 
-    assert_equal :array_float, array_decl.type
+    assert_equal array_type(:float), array_decl.type
     assert_equal 2, array_decl.array_size
     assert_equal :float, array_decl.element_type
-    assert_equal :array_float, @type_inference.lookup(:weights)
+    assert_equal array_type(:float), @type_inference.lookup(:weights)
     assert_equal :float, @type_inference.lookup(:weights_element_type)
     assert_equal :float, scalar_decl.type
     assert_equal :float, @type_inference.lookup(:exposure)
@@ -236,7 +236,7 @@ class PrismTypeInferenceTest < Test::Unit::TestCase
 
     infer(array_literal)
 
-    assert_equal :array_float, array_literal.type
+    assert_equal array_type(:float), array_literal.type
   end
 
   test "branch-local declarations do not leak outside conditionals" do
@@ -264,5 +264,9 @@ class PrismTypeInferenceTest < Test::Unit::TestCase
 
   def var(name, type = nil)
     RLSL::Prism::IR::VarRef.new(name, type)
+  end
+
+  def array_type(element_type)
+    RLSL::Prism::TypeShapes.array(element_type)
   end
 end

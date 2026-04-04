@@ -1,56 +1,19 @@
 # frozen_string_literal: true
 
+require_relative "type_inference/scope_stack"
+require_relative "type_inference/type_shapes"
+require_relative "type_inference/call_validator"
+
 module RLSL
   module Prism
     class SignatureError < StandardError; end
-
-    class ScopeStack
-      def initialize
-        @scopes = [{}]
-      end
-
-      def push(initial_scope = {})
-        @scopes << normalize(initial_scope)
-      end
-
-      def pop
-        raise "Cannot pop the global scope" if @scopes.length == 1
-
-        @scopes.pop
-      end
-
-      def register(name, type)
-        @scopes.last[name.to_sym] = type
-      end
-
-      def lookup(name)
-        @scopes.reverse_each do |scope|
-          return scope[name.to_sym] if scope.key?(name.to_sym)
-        end
-
-        nil
-      end
-
-      def to_h
-        @scopes.each_with_object({}) do |scope, merged|
-          merged.merge!(scope)
-        end
-      end
-
-      private
-
-      def normalize(scope)
-        scope.each_with_object({}) do |(name, type), normalized|
-          normalized[name.to_sym] = type
-        end
-      end
-    end
 
     class TypeInference
       def initialize(uniforms = {}, custom_functions = {})
         @scopes = ScopeStack.new
         @uniforms = uniforms
         @custom_functions = custom_functions
+        @call_validator = CallValidator.new
 
         uniforms.each do |name, type|
           register(name, type)
@@ -182,10 +145,10 @@ module RLSL
         sig = Builtins.function_signature(node.name)
         if sig
           arg_types = node.args.map(&:type)
-          validate_builtin_call!(node, arg_types, sig) unless skip_builtin_validation?(node, sig)
+          @call_validator.validate_builtin!(node, arg_types, sig)
           node.type = Builtins.resolve_return_type(sig[:returns], arg_types)
         elsif @custom_functions.key?(node.name.to_sym)
-          validate_custom_call!(node.name, node.args.map(&:type), @custom_functions[node.name.to_sym])
+          @call_validator.validate_custom!(node.name, node.args.map(&:type), @custom_functions[node.name.to_sym])
           node.type = @custom_functions[node.name.to_sym][:returns]
         else
           node.type = node.receiver&.type
@@ -280,7 +243,7 @@ module RLSL
         node.elements.each { |elem| infer(elem) }
 
         element_type = node.elements.first&.type || :float
-        node.type = :"array_#{element_type}"
+        node.type = TypeShapes.array(element_type)
         node
       end
 
@@ -289,8 +252,8 @@ module RLSL
         infer(node.index)
 
         array_type = node.array.type
-        if array_type.to_s.start_with?("array_")
-          node.type = array_type.to_s.sub("array_", "").to_sym
+        if TypeShapes.array?(array_type)
+          node.type = TypeShapes.element_type(array_type)
         else
           node.type = lookup("#{node.array.name}_element_type") || :float
         end
@@ -304,7 +267,7 @@ module RLSL
           node.array_size ||= node.initializer.elements.length
           first_elem = node.initializer.elements.first
           node.element_type ||= first_elem&.type || :float
-          node.type = :"array_#{node.element_type}"
+          node.type = TypeShapes.array(node.element_type)
         else
           node.type ||= node.initializer&.type
         end
@@ -327,8 +290,8 @@ module RLSL
             target.type = value_type.types[i]
             register(target.name, target.type)
           end
-        elsif value_type.to_s.start_with?("array_")
-          elem_type = value_type.to_s.sub("array_", "").to_sym
+        elsif TypeShapes.array?(value_type)
+          elem_type = TypeShapes.element_type(value_type)
           node.targets.each do |target|
             target.type = elem_type
             register(target.name, target.type)
@@ -370,68 +333,6 @@ module RLSL
         yield
       ensure
         @scopes.pop if scoped
-      end
-
-      def validate_builtin_call!(node, arg_types, signature)
-        validate_signature!(
-          node.name,
-          arg_types,
-          signature[:args],
-          variadic: signature[:variadic],
-          min_args: signature[:min_args]
-        )
-      end
-
-      def validate_custom_call!(name, arg_types, signature)
-        params = signature[:params]
-        return unless params
-
-        validate_signature!(name, arg_types, params.values)
-      end
-
-      def validate_signature!(name, arg_types, expected_types, variadic: false, min_args: nil)
-        validate_argument_count!(name, arg_types.length, expected_types.length, variadic: variadic, min_args: min_args)
-
-        arg_types.each_with_index do |actual_type, index|
-          expected_type = expected_types[index]
-          next if compatible_argument_type?(expected_type, actual_type)
-
-          raise SignatureError,
-                "Invalid argument #{index + 1} for #{name}: expected #{expected_type}, got #{actual_type || :unknown}"
-        end
-      end
-
-      def validate_argument_count!(name, actual_count, expected_count, variadic:, min_args:)
-        return if valid_argument_count?(actual_count, expected_count, variadic: variadic, min_args: min_args)
-
-        raise SignatureError,
-              "Wrong number of arguments for #{name}: expected #{expected_count_description(expected_count, variadic, min_args)}, got #{actual_count}"
-      end
-
-      def valid_argument_count?(actual_count, expected_count, variadic:, min_args:)
-        return actual_count == expected_count unless variadic
-
-        minimum = min_args || expected_count
-        actual_count.between?(minimum, expected_count)
-      end
-
-      def expected_count_description(expected_count, variadic, min_args)
-        return expected_count.to_s unless variadic
-
-        minimum = min_args || expected_count
-        minimum == expected_count ? minimum.to_s : "#{minimum}..#{expected_count}"
-      end
-
-      def compatible_argument_type?(expected_type, actual_type)
-        return true if expected_type == :any
-        return true if expected_type == actual_type
-        return true if expected_type == :float && actual_type == :int
-
-        false
-      end
-
-      def skip_builtin_validation?(node, signature)
-        signature[:variadic] && node.args.empty? && !node.type.nil?
       end
     end
   end
