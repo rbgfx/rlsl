@@ -3,6 +3,7 @@
 require_relative "base_emitter/control_flow_emission"
 require_relative "base_emitter/expression_emission"
 require_relative "base_emitter/definition_emission"
+require_relative "base_emitter/statement_emission"
 
 module RLSL
   module Prism
@@ -11,6 +12,7 @@ module RLSL
         include ControlFlowEmission
         include ExpressionEmission
         include DefinitionEmission
+        include StatementEmission
 
         PRECEDENCE = {
           "||" => 1,
@@ -26,17 +28,6 @@ module RLSL
           IR::ForLoop,
           IR::WhileLoop,
           IR::FunctionDefinition
-        ].freeze
-
-        RETURN_PASSTHROUGH_NODES = [
-          IR::Return,
-          IR::VarDecl,
-          IR::Assignment,
-          IR::ForLoop,
-          IR::WhileLoop,
-          IR::FunctionDefinition,
-          IR::GlobalDecl,
-          IR::MultipleAssignment
         ].freeze
 
         {
