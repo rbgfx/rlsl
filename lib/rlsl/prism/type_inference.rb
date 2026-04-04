@@ -4,6 +4,9 @@ require_relative "type_inference/scope_stack"
 require_relative "type_inference/type_shapes"
 require_relative "type_inference/call_validator"
 require_relative "type_inference/type_environment"
+require_relative "type_inference/call_type_resolver"
+require_relative "type_inference/field_type_resolver"
+require_relative "type_inference/collection_type_resolver"
 
 module RLSL
   module Prism
@@ -40,6 +43,16 @@ module RLSL
         @uniforms = uniforms
         @custom_functions = custom_functions
         @call_validator = CallValidator.new
+        @call_type_resolver = CallTypeResolver.new(
+          custom_functions: @custom_functions,
+          call_validator: @call_validator
+        )
+        @field_type_resolver = FieldTypeResolver.new(uniforms: @uniforms)
+        @collection_type_resolver = CollectionTypeResolver.new(
+          type_environment: @types,
+          custom_functions: @custom_functions,
+          register: method(:register)
+        )
 
         uniforms.each do |name, type|
           register(name, type)
@@ -130,28 +143,13 @@ module RLSL
         node.args.each { |arg| infer(arg) }
         infer(node.receiver) if node.receiver
 
-        sig = Builtins.function_signature(node.name)
-        if sig
-          arg_types = node.args.map(&:type)
-          @call_validator.validate_builtin!(node, arg_types, sig)
-          node.type = Builtins.resolve_return_type(sig[:returns], arg_types)
-        elsif @custom_functions.key?(node.name.to_sym)
-          @call_validator.validate_custom!(node.name, node.args.map(&:type), @custom_functions[node.name.to_sym])
-          node.type = @custom_functions[node.name.to_sym][:returns]
-        else
-          node.type = node.receiver&.type
-        end
+        node.type = @call_type_resolver.resolve(node)
         node
       end
 
       def infer_field_access(node)
         infer(node.receiver)
-
-        if Builtins.single_component_field?(node.field)
-          node.type = :float
-        else
-          node.type = @uniforms[node.field.to_sym] || :float
-        end
+        node.type = @field_type_resolver.resolve(node)
         node
       end
 
@@ -229,68 +227,27 @@ module RLSL
 
       def infer_array_literal(node)
         node.elements.each { |elem| infer(elem) }
-
-        element_type = node.elements.first&.type || :float
-        node.type = TypeShapes.array(element_type)
+        node.type = @collection_type_resolver.resolve_array_literal(node)
         node
       end
 
       def infer_array_index(node)
         infer(node.array)
         infer(node.index)
-
-        array_type = node.array.type
-        if TypeShapes.array?(array_type)
-          node.type = TypeShapes.element_type(array_type)
-        elsif node.array.is_a?(IR::VarRef)
-          node.type = @types.array_element_type(node.array.name) || :float
-        else
-          node.type = :float
-        end
+        node.type = @collection_type_resolver.resolve_array_index(node)
         node
       end
 
       def infer_global_decl(node)
         infer(node.initializer) if node.initializer
-
-        if node.initializer.is_a?(IR::ArrayLiteral)
-          node.array_size ||= node.initializer.elements.length
-          first_elem = node.initializer.elements.first
-          node.element_type ||= first_elem&.type || :float
-          node.type = TypeShapes.array(node.element_type)
-        else
-          node.type ||= node.initializer&.type
-        end
-
+        node.type ||= @collection_type_resolver.resolve_global_decl(node)
         register(node.name, node.type) if node.type
         node
       end
 
       def infer_multiple_assignment(node)
         infer(node.value)
-
-        value_type = node.value.type
-        if value_type.is_a?(IR::TupleType)
-          node.targets.each_with_index do |target, i|
-            target.type = value_type.types[i]
-            register(target.name, target.type)
-          end
-        elsif TypeShapes.array?(value_type)
-          elem_type = TypeShapes.element_type(value_type)
-          node.targets.each do |target|
-            target.type = elem_type
-            register(target.name, target.type)
-          end
-        elsif node.value.is_a?(IR::FuncCall) && @custom_functions.key?(node.value.name)
-          func_info = @custom_functions[node.value.name]
-          if func_info[:returns].is_a?(Array)
-            node.targets.each_with_index do |target, i|
-              target.type = func_info[:returns][i]
-              register(target.name, target.type)
-            end
-          end
-        end
-
+        @collection_type_resolver.assign_multiple_targets(node)
         node.type = nil
         node
       end
