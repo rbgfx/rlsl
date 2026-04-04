@@ -24,6 +24,9 @@ module RLSL
           texture_call = emit_texture_call(name, node)
           return texture_call if texture_call
 
+          math_function = profile.math_functions[name]
+          return emit_named_call(math_function, node.args) if math_function
+
           emit_named_call(name, node.args, receiver: node.receiver)
         end
 
