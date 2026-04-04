@@ -28,23 +28,6 @@ class ShaderBuilderFunctionsTest < Test::Unit::TestCase
 end
 
 class ShaderBuilderHelpersModeTest < Test::Unit::TestCase
-  test "helpers_ruby_mode? returns false by default" do
-    builder = RLSL::ShaderBuilder.new(:test)
-    assert_false builder.helpers_ruby_mode?
-  end
-
-  test "helpers_ruby_mode? returns true for ruby mode" do
-    builder = RLSL::ShaderBuilder.new(:test)
-    builder.helpers(:ruby) { "some helper" }
-    assert_true builder.helpers_ruby_mode?
-  end
-
-  test "helpers_ruby_mode? returns false for c mode" do
-    builder = RLSL::ShaderBuilder.new(:test)
-    builder.helpers(:c) { "some helper" }
-    assert_false builder.helpers_ruby_mode?
-  end
-
   test "helpers sets block and mode" do
     builder = RLSL::ShaderBuilder.new(:test)
     builder.helpers(:ruby) { "helper code" }

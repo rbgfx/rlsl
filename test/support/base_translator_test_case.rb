@@ -1,13 +1,15 @@
 # frozen_string_literal: true
 
 class BaseTranslatorTestTranslator < RLSL::BaseTranslator
-  CALL_REWRITES = {
-    "test_func" => RLSL::BaseTranslator.rename_call("replaced_func")
-  }.freeze
-
-  TYPE_MAP = {
-    "int" => "integer"
-  }.freeze
+  PROFILE = RLSL::BaseTranslator.build_profile(
+    uniform_target: :wgsl,
+    identifier_replacements: {
+      "int" => "integer"
+    },
+    call_rewrites: {
+      "test_func" => RLSL::BaseTranslator.rename_call("replaced_func")
+    }
+  )
 
   def generate_shader(helpers, fragment)
     "HELPERS: #{helpers}\nFRAGMENT: #{fragment}"
@@ -24,11 +26,15 @@ class BaseTranslatorTestTranslator < RLSL::BaseTranslator
   def target_vec4_type
     "test_vec4"
   end
-
-  def uniform_target
-    :wgsl
-  end
 end
 
 class IncompleteBaseTranslator < RLSL::BaseTranslator
+end
+
+class ProfileOnlyBaseTranslator < RLSL::BaseTranslator
+  PROFILE = RLSL::BaseTranslator.build_profile(
+    uniform_target: :wgsl,
+    identifier_replacements: {},
+    call_rewrites: {}
+  )
 end

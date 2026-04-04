@@ -26,8 +26,6 @@ module RLSL
       end
     end
 
-    CALL_REWRITES = {}.freeze
-    TYPE_MAP = {}.freeze
     REMOVED_IDENTIFIERS = %w[static inline].freeze
 
     def initialize(uniforms, helpers_code, fragment_code)
@@ -114,9 +112,7 @@ module RLSL
     end
 
     def uniform_target
-      return self.class.const_get(:PROFILE).uniform_target if self.class.const_defined?(:PROFILE, false)
-
-      raise NotImplementedError, "Subclasses must implement uniform_target"
+      profile.uniform_target
     end
 
     def uniform_lines(resolution_line:, &block)
@@ -128,13 +124,9 @@ module RLSL
     end
 
     def profile
-      return self.class.const_get(:PROFILE) if self.class.const_defined?(:PROFILE, false)
+      return self.class::PROFILE if self.class.const_defined?(:PROFILE, false)
 
-      @profile ||= self.class.build_profile(
-        uniform_target: uniform_target,
-        identifier_replacements: self.class::TYPE_MAP,
-        call_rewrites: self.class::CALL_REWRITES
-      )
+      raise NotImplementedError, "Subclasses must define PROFILE"
     end
 
     def self.build_profile(uniform_target:, identifier_replacements:, call_rewrites:, removed_identifiers: REMOVED_IDENTIFIERS)

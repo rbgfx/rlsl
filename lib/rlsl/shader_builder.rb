@@ -41,10 +41,6 @@ module RLSL
       )
     end
 
-    def ruby_mode?
-      @definition.ruby_fragment?
-    end
-
     def compile_and_load
       build_service.compile_and_load
     end
@@ -67,10 +63,6 @@ module RLSL
 
     def transpile_helpers(target)
       build_service.transpile_helpers(target)
-    end
-
-    def helpers_ruby_mode?
-      @definition.ruby_helpers?
     end
 
     private
