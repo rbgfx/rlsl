@@ -10,7 +10,7 @@ class ShaderBuilderFunctionsTest < Test::Unit::TestCase
       vec3 :get_color
     end
 
-    custom_funcs = builder.instance_variable_get(:@custom_functions)
+    custom_funcs = builder.instance_variable_get(:@definition).custom_functions
     assert_equal({ returns: :float }, custom_funcs[:helper1])
     assert_equal({ returns: :vec3 }, custom_funcs[:get_color])
   end
@@ -21,7 +21,7 @@ class ShaderBuilderFunctionsTest < Test::Unit::TestCase
       define :complex_func, returns: :vec3, params: { x: :float }
     end
 
-    custom_funcs = builder.instance_variable_get(:@custom_functions)
+    custom_funcs = builder.instance_variable_get(:@definition).custom_functions
     expected = { returns: :vec3, params: { x: :float } }
     assert_equal expected, custom_funcs[:complex_func]
   end
@@ -49,8 +49,9 @@ class ShaderBuilderHelpersModeTest < Test::Unit::TestCase
     builder = RLSL::ShaderBuilder.new(:test)
     builder.helpers(:ruby) { "helper code" }
 
-    block = builder.instance_variable_get(:@helpers_block)
-    mode = builder.instance_variable_get(:@helpers_mode)
+    definition = builder.instance_variable_get(:@definition)
+    block = definition.helpers_block
+    mode = definition.helpers_mode
 
     assert_not_nil block
     assert_equal :ruby, mode
@@ -212,19 +213,19 @@ class ShaderBuilderFragmentModeTest < Test::Unit::TestCase
   test "fragment with no args sets C mode" do
     builder = RLSL::ShaderBuilder.new(:test)
     builder.fragment { "C code" }
-    assert_equal :c, builder.instance_variable_get(:@fragment_mode)
+    assert_equal :c, builder.instance_variable_get(:@definition).fragment_mode
   end
 
   test "fragment with args sets Ruby mode" do
     builder = RLSL::ShaderBuilder.new(:test)
     builder.fragment { |frag_coord| vec3(1.0, 0.0, 0.0) }
-    assert_equal :ruby, builder.instance_variable_get(:@fragment_mode)
+    assert_equal :ruby, builder.instance_variable_get(:@definition).fragment_mode
   end
 
   test "fragment with multiple args sets Ruby mode" do
     builder = RLSL::ShaderBuilder.new(:test)
     builder.fragment { |frag_coord, resolution, u| vec3(1.0, 0.0, 0.0) }
-    assert_equal :ruby, builder.instance_variable_get(:@fragment_mode)
+    assert_equal :ruby, builder.instance_variable_get(:@definition).fragment_mode
   end
 end
 

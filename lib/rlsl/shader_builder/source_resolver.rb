@@ -3,13 +3,9 @@
 module RLSL
   class ShaderBuilder
     class SourceResolver
-      def initialize(uniforms:, custom_functions:, helpers_block:, helpers_mode:, fragment_block:, fragment_mode:)
-        @uniforms = uniforms
-        @custom_functions = custom_functions
-        @helpers_block = helpers_block
-        @helpers_mode = helpers_mode
-        @fragment_block = fragment_block
-        @fragment_mode = fragment_mode
+      def initialize(definition, transpiler_class: Prism::Transpiler)
+        @definition = definition
+        @transpiler_class = transpiler_class
       end
 
       def sources_for(target)
@@ -17,31 +13,31 @@ module RLSL
       end
 
       def helpers_code(target)
-        return "" unless @helpers_block
-        return @helpers_block.call unless ruby_helpers?
+        return "" unless @definition.helpers_block
+        return @definition.helpers_block.call unless ruby_helpers?
 
-        transpiler.transpile_helpers(@helpers_block, target, @custom_functions)
+        transpiler.transpile_helpers(@definition.helpers_block, target, @definition.custom_functions)
       end
 
       def fragment_code(target)
-        return "" unless @fragment_block
-        return @fragment_block.call unless ruby_fragment?
+        return "" unless @definition.fragment_block
+        return @definition.fragment_block.call unless ruby_fragment?
 
-        transpiler.transpile(@fragment_block, target)
+        transpiler.transpile(@definition.fragment_block, target)
       end
 
       private
 
       def transpiler
-        @transpiler ||= Prism::Transpiler.new(@uniforms, @custom_functions)
+        @transpiler ||= @transpiler_class.new(@definition.uniforms, @definition.custom_functions)
       end
 
       def ruby_helpers?
-        @helpers_mode == :ruby
+        @definition.ruby_helpers?
       end
 
       def ruby_fragment?
-        @fragment_mode == :ruby
+        @definition.ruby_fragment?
       end
     end
   end

@@ -1217,7 +1217,7 @@ class ShaderBuilderRubyModeTest < Test::Unit::TestCase
     builder.helpers(:c) { "float helper() { return 1.0; }" }
     builder.fragment { "return helper();" }
     # Helpers block is stored
-    assert_not_nil builder.instance_variable_get(:@helpers_block)
+    assert_not_nil builder.instance_variable_get(:@definition).helpers_block
   end
 
   test "transpile_fragment returns empty string without block" do
