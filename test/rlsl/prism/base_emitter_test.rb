@@ -141,6 +141,26 @@ class BaseEmitterTest < Test::Unit::TestCase
     assert_equal "{1.0f, 2.0f}", result
   end
 
+  test "emit_vector_math_call through profile resolver" do
+    call = RLSL::Prism::IR::FuncCall.new(:normalize, [RLSL::Prism::IR::VarRef.new(:dir, :vec3)])
+
+    result = @emitter.emit(call)
+
+    assert_equal "vec3_normalize(dir)", result
+  end
+
+  test "emit_vector_binary_op through profile resolver" do
+    binary = RLSL::Prism::IR::BinaryOp.new(
+      "+",
+      RLSL::Prism::IR::VarRef.new(:left, :vec2),
+      RLSL::Prism::IR::VarRef.new(:right, :vec2)
+    )
+
+    result = @emitter.emit(binary)
+
+    assert_equal "vec2_add(left, right)", result
+  end
+
   test "emit_array_index with literal index" do
     array = RLSL::Prism::IR::VarRef.new(:arr)
     index = RLSL::Prism::IR::Literal.new(0, :int)

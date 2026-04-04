@@ -63,7 +63,9 @@ module RLSL
             "-" => "sub",
             "*" => "mul",
             "/" => "div"
-          }
+          },
+          call_resolver: :emit_profile_func_call,
+          binary_op_resolver: :emit_profile_binary_op
         ).freeze
 
         TYPE_MAP = PROFILE.type_map
@@ -80,62 +82,16 @@ module RLSL
           "#{formatted}f"
         end
 
-        def emit_func_call(node)
+        def emit_profile_func_call(node)
           name = node.name.to_sym
-
-          if VECTOR_CONSTRUCTORS.key?(name)
-            args = node.args.map { |arg| emit(arg) }.join(", ")
-            return "#{VECTOR_CONSTRUCTORS[name]}(#{args})"
-          end
-
-          if MATRIX_CONSTRUCTORS.key?(name)
-            args = node.args.map { |arg| emit(arg) }.join(", ")
-            return "#{MATRIX_CONSTRUCTORS[name]}(#{args})"
-          end
-
-          if TEXTURE_FUNCTIONS.key?(name)
-            args = node.args.map { |arg| emit(arg) }.join(", ")
-            return "#{TEXTURE_FUNCTIONS[name]}(#{args})"
-          end
-
-          if %i[length normalize dot].include?(name) && node.args.first&.type
-            vec_type = node.args.first.type
-            if %i[vec2 vec3 vec4].include?(vec_type)
-              func_name = "#{vec_type}_#{name}"
-              args = node.args.map { |arg| emit(arg) }.join(", ")
-              return "#{func_name}(#{args})"
-            end
-          end
-
-          if profile.math_functions.key?(name)
-            func_name = profile.math_functions[name]
-
-            if name == :mix && node.args.first&.type
-              first_type = node.args.first.type
-              if %i[vec2 vec3 vec4].include?(first_type)
-                func_name = "mix_v3"
-              end
-            end
-
-            args = node.args.map { |arg| emit(arg) }.join(", ")
-            return "#{func_name}(#{args})"
-          end
-
-          super
+          return emit_named_call("#{node.args.first.type}_#{name}", node.args) if vector_math_call?(name, node)
+          return emit_named_call("mix_v3", node.args) if vector_mix_call?(name, node)
         end
 
-        def emit_binary_op(node)
-          left_type = node.left.type
-          op = node.operator
+        def emit_profile_binary_op(node)
+          return unless vector_type?(node.left.type) && profile.vector_ops.key?(node.operator)
 
-          if vector_type?(left_type) && profile.vector_ops.key?(op)
-            vec_func = "#{left_type}_#{profile.vector_ops[op]}"
-            left = emit(node.left)
-            right = emit(node.right)
-            return "#{vec_func}(#{left}, #{right})"
-          end
-
-          super
+          emit_named_call("#{node.left.type}_#{profile.vector_ops[node.operator]}", [node.left, node.right])
         end
 
         def emit_bool_literal(node)
@@ -143,6 +99,14 @@ module RLSL
         end
 
         private
+
+        def vector_math_call?(name, node)
+          %i[length normalize dot].include?(name) && vector_type?(node.args.first&.type)
+        end
+
+        def vector_mix_call?(name, node)
+          name == :mix && vector_type?(node.args.first&.type)
+        end
 
         def vector_type?(type)
           %i[vec2 vec3 vec4].include?(type)

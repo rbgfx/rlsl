@@ -11,6 +11,8 @@ module RLSL
         :default_type_name,
         :math_functions,
         :vector_ops,
+        :call_resolver,
+        :binary_op_resolver,
         keyword_init: true
       ) do
         def initialize(**attributes)
@@ -21,7 +23,9 @@ module RLSL
             texture_functions: attributes.fetch(:texture_functions, {}).freeze,
             default_type_name: attributes.fetch(:default_type_name, "float"),
             math_functions: attributes.fetch(:math_functions, {}).freeze,
-            vector_ops: attributes.fetch(:vector_ops, {}).freeze
+            vector_ops: attributes.fetch(:vector_ops, {}).freeze,
+            call_resolver: attributes[:call_resolver],
+            binary_op_resolver: attributes[:binary_op_resolver]
           )
         end
       end

@@ -13,6 +13,9 @@ module RLSL
         end
 
         def emit_func_call(node)
+          resolved_call = emit_profile_call(node)
+          return resolved_call if resolved_call
+
           name = node.name.to_sym
 
           constructor_name = profile.vector_constructors[name] || profile.matrix_constructors[name]
@@ -25,6 +28,9 @@ module RLSL
         end
 
         def emit_binary_op(node)
+          resolved_binary_op = emit_profile_binary_op(node)
+          return resolved_binary_op if resolved_binary_op
+
           left = emit_with_precedence(node.left, node.operator)
           right = emit_with_precedence(node.right, node.operator)
           "#{left} #{node.operator} #{right}"
@@ -45,6 +51,18 @@ module RLSL
           rendered_args << emit(receiver) if receiver
           rendered_args.concat(args.map { |arg| emit(arg) })
           "#{name}(#{rendered_args.join(', ')})"
+        end
+
+        def emit_profile_call(node)
+          return unless profile.call_resolver
+
+          send(profile.call_resolver, node)
+        end
+
+        def emit_profile_binary_op(node)
+          return unless profile.binary_op_resolver
+
+          send(profile.binary_op_resolver, node)
         end
 
         def profile

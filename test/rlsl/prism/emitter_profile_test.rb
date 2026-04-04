@@ -90,4 +90,11 @@ class EmitterTypeMapTest < Test::Unit::TestCase
     assert_equal "texture_sample", funcs[:texture]
     assert_equal "texture_sample_lod", funcs[:textureLod]
   end
+
+  test "C emitter profile exposes call and binary resolvers" do
+    profile = RLSL::Prism::Emitters::CEmitter::PROFILE
+
+    assert_equal :emit_profile_func_call, profile.call_resolver
+    assert_equal :emit_profile_binary_op, profile.binary_op_resolver
+  end
 end
