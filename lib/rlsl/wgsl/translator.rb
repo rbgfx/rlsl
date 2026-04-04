@@ -5,14 +5,14 @@ module RLSL
     class Translator < BaseTranslator
       PROFILE = BaseTranslator.build_profile(
         uniform_target: :wgsl,
-        type_map: {
+        identifier_replacements: {
           "float" => "f32",
           "int" => "i32",
           "vec2" => "vec2<f32>",
           "vec3" => "vec3<f32>",
           "vec4" => "vec4<f32>"
         },
-        func_replacements: BaseTranslator.common_func_replacements(
+        call_rewrites: BaseTranslator.common_call_rewrites(
           target_vec2: "vec2<f32>",
           target_vec3: "vec3<f32>",
           target_vec4: "vec4<f32>"

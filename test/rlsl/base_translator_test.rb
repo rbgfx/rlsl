@@ -5,9 +5,9 @@ require_relative "../test_helper"
 class BaseTranslatorTest < Test::Unit::TestCase
   # Create a concrete subclass for testing
   class TestTranslator < RLSL::BaseTranslator
-    FUNC_REPLACEMENTS = [
-      [/test_func\(/, "replaced_func("]
-    ].freeze
+    CALL_REWRITES = {
+      "test_func" => RLSL::BaseTranslator.rename_call("replaced_func")
+    }.freeze
 
     TYPE_MAP = {
       "int" => "integer"
@@ -55,6 +55,13 @@ class BaseTranslatorTest < Test::Unit::TestCase
     result = translator.translate
     assert result.include?("replaced_func(x)")
     assert result.include?("replaced_func(y)")
+  end
+
+  test "translate rewrites nested calls without losing balanced arguments" do
+    translator = RLSL::WGSL::Translator.new({}, "", "vec3_new(mix_f(a, b, t), sinf(x), cosf(y))")
+    result = translator.translate
+
+    assert result.include?("vec3<f32>(mix(a, b, t), sin(x), cos(y))")
   end
 
   test "translate handles nil helpers code" do
@@ -106,56 +113,42 @@ class BaseTranslatorTest < Test::Unit::TestCase
   end
 end
 
-class BaseTranslatorCommonReplacementsTest < Test::Unit::TestCase
-  test "common_func_replacements generates vector constructor replacements" do
-    replacements = RLSL::BaseTranslator.common_func_replacements(
+class BaseTranslatorCommonRewritesTest < Test::Unit::TestCase
+  test "common_call_rewrites generates vector constructor replacements" do
+    rewrites = RLSL::BaseTranslator.common_call_rewrites(
       target_vec2: "float2",
       target_vec3: "float3",
       target_vec4: "float4"
     )
 
-    # Should have replacements for vec constructors
-    has_vec2 = replacements.any? { |pattern, _| pattern.source.include?("vec2_new") }
-    has_vec3 = replacements.any? { |pattern, _| pattern.source.include?("vec3_new") }
-    has_vec4 = replacements.any? { |pattern, _| pattern.source.include?("vec4_new") }
-
-    assert has_vec2
-    assert has_vec3
-    assert has_vec4
+    assert_equal "float2(1.0, 2.0)", rewrites.fetch("vec2_new").call(["1.0", "2.0"])
+    assert_equal "float3(1.0, 2.0, 3.0)", rewrites.fetch("vec3_new").call(["1.0", "2.0", "3.0"])
+    assert_equal "float4(1.0, 2.0, 3.0, 4.0)", rewrites.fetch("vec4_new").call(["1.0", "2.0", "3.0", "4.0"])
   end
 
-  test "common_func_replacements includes math function replacements" do
-    replacements = RLSL::BaseTranslator.common_func_replacements(
+  test "common_call_rewrites includes math function replacements" do
+    rewrites = RLSL::BaseTranslator.common_call_rewrites(
       target_vec2: "vec2",
       target_vec3: "vec3",
       target_vec4: "vec4"
     )
 
-    has_sqrt = replacements.any? { |pattern, _| pattern.source.include?("sqrtf") }
-    has_sin = replacements.any? { |pattern, _| pattern.source.include?("sinf") }
-    has_cos = replacements.any? { |pattern, _| pattern.source.include?("cosf") }
-
-    assert has_sqrt
-    assert has_sin
-    assert has_cos
+    assert_equal "sqrt(x)", rewrites.fetch("sqrtf").call(["x"])
+    assert_equal "sin(y)", rewrites.fetch("sinf").call(["y"])
+    assert_equal "cos(z)", rewrites.fetch("cosf").call(["z"])
   end
 
-  test "common_func_replacements includes vector operation replacements" do
-    replacements = RLSL::BaseTranslator.common_func_replacements(
+  test "common_call_rewrites includes vector operation replacements" do
+    rewrites = RLSL::BaseTranslator.common_call_rewrites(
       target_vec2: "vec2",
       target_vec3: "vec3",
       target_vec4: "vec4"
     )
 
-    has_add = replacements.any? { |pattern, _| pattern.source.include?("vec2_add") }
-    has_sub = replacements.any? { |pattern, _| pattern.source.include?("vec3_sub") }
-    has_dot = replacements.any? { |pattern, _| pattern.source.include?("vec2_dot") }
-    has_normalize = replacements.any? { |pattern, _| pattern.source.include?("vec3_normalize") }
-
-    assert has_add
-    assert has_sub
-    assert has_dot
-    assert has_normalize
+    assert_equal "(a + b)", rewrites.fetch("vec2_add").call(%w[a b])
+    assert_equal "(a - b)", rewrites.fetch("vec3_sub").call(%w[a b])
+    assert_equal "dot(a, b)", rewrites.fetch("vec2_dot").call(%w[a b])
+    assert_equal "normalize(v)", rewrites.fetch("vec3_normalize").call(["v"])
   end
 end
 

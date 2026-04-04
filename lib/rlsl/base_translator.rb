@@ -1,36 +1,28 @@
 # frozen_string_literal: true
 
+require_relative "base_translator/code_rewriter"
+
 module RLSL
   class BaseTranslator
     TargetProfile = Struct.new(
       :uniform_target,
-      :type_map,
-      :func_replacements,
-      :code_transforms,
+      :identifier_replacements,
+      :call_rewrites,
+      :removed_identifiers,
       keyword_init: true
     ) do
       def translate(code)
-        result = code.dup
-
-        type_map.each do |source_type, target_type|
-          result.gsub!(/\b#{source_type}\b/, target_type)
-        end
-
-        func_replacements.each do |pattern, replacement|
-          result.gsub!(pattern, replacement)
-        end
-
-        code_transforms.each { |transform| transform.call(result) }
-        result
+        CodeRewriter.new(code).rewrite(
+          identifier_replacements: identifier_replacements,
+          call_rewrites: call_rewrites,
+          removed_identifiers: removed_identifiers
+        )
       end
     end
 
-    FUNC_REPLACEMENTS = [].freeze
+    CALL_REWRITES = {}.freeze
     TYPE_MAP = {}.freeze
-    CODE_TRANSFORMS = [
-      ->(code) { code.gsub!(/\bstatic\s+/, "") },
-      ->(code) { code.gsub!(/\binline\s+/, "") }
-    ].freeze
+    REMOVED_IDENTIFIERS = %w[static inline].freeze
 
     def initialize(uniforms, helpers_code, fragment_code)
       @uniforms = uniforms
@@ -132,59 +124,73 @@ module RLSL
 
       @profile ||= self.class.build_profile(
         uniform_target: uniform_target,
-        type_map: self.class::TYPE_MAP,
-        func_replacements: self.class::FUNC_REPLACEMENTS
+        identifier_replacements: self.class::TYPE_MAP,
+        call_rewrites: self.class::CALL_REWRITES
       )
     end
 
-    def self.build_profile(uniform_target:, type_map:, func_replacements:, code_transforms: CODE_TRANSFORMS)
+    def self.build_profile(uniform_target:, identifier_replacements:, call_rewrites:, removed_identifiers: REMOVED_IDENTIFIERS)
       TargetProfile.new(
         uniform_target: uniform_target,
-        type_map: type_map.freeze,
-        func_replacements: func_replacements.freeze,
-        code_transforms: code_transforms.freeze
+        identifier_replacements: identifier_replacements.freeze,
+        call_rewrites: call_rewrites.freeze,
+        removed_identifiers: removed_identifiers.freeze
       ).freeze
     end
 
-    def self.common_func_replacements(target_vec2:, target_vec3:, target_vec4:)
-      [
-        [/vec2_new\(([^,]+),\s*([^)]+)\)/, "#{target_vec2}(\\1, \\2)"],
-        [/vec3_new\(([^,]+),\s*([^,]+),\s*([^)]+)\)/, "#{target_vec3}(\\1, \\2, \\3)"],
-        [/vec4_new\(([^,]+),\s*([^,]+),\s*([^,]+),\s*([^)]+)\)/, "#{target_vec4}(\\1, \\2, \\3, \\4)"],
-        [/vec2_add\(([^,]+),\s*([^)]+)\)/, '(\1 + \2)'],
-        [/vec3_add\(([^,]+),\s*([^)]+)\)/, '(\1 + \2)'],
-        [/vec2_sub\(([^,]+),\s*([^)]+)\)/, '(\1 - \2)'],
-        [/vec3_sub\(([^,]+),\s*([^)]+)\)/, '(\1 - \2)'],
-        [/vec2_mul\(([^,]+),\s*([^)]+)\)/, '(\1 * \2)'],
-        [/vec3_mul\(([^,]+),\s*([^)]+)\)/, '(\1 * \2)'],
-        [/vec2_div\(([^,]+),\s*([^)]+)\)/, '(\1 / \2)'],
-        [/vec3_div\(([^,]+),\s*([^)]+)\)/, '(\1 / \2)'],
-        [/vec2_dot\(([^,]+),\s*([^)]+)\)/, 'dot(\1, \2)'],
-        [/vec3_dot\(([^,]+),\s*([^)]+)\)/, 'dot(\1, \2)'],
-        [/vec2_length\(([^)]+)\)/, 'length(\1)'],
-        [/vec3_length\(([^)]+)\)/, 'length(\1)'],
-        [/vec2_normalize\(([^)]+)\)/, 'normalize(\1)'],
-        [/vec3_normalize\(([^)]+)\)/, 'normalize(\1)'],
-        [/sqrtf\(/, "sqrt("],
-        [/sinf\(/, "sin("],
-        [/cosf\(/, "cos("],
-        [/tanf\(/, "tan("],
-        [/fabsf\(/, "abs("],
-        [/fminf\(/, "min("],
-        [/fmaxf\(/, "max("],
-        [/floorf\(/, "floor("],
-        [/ceilf\(/, "ceil("],
-        [/powf\(/, "pow("],
-        [/expf\(/, "exp("],
-        [/logf\(/, "log("],
-        [/atan2f\(/, "atan2("],
-        [/fmodf\(/, "fmod("],
-        [/mix_f\(/, "mix("],
-        [/mix_v3\(/, "mix("],
-        [/clamp_f\(/, "clamp("],
-        [/smoothstep\(/, "smoothstep("],
-        [/fract\(/, "fract("]
-      ]
+    def self.common_call_rewrites(target_vec2:, target_vec3:, target_vec4:)
+      {
+        "vec2_new" => rename_call(target_vec2),
+        "vec3_new" => rename_call(target_vec3),
+        "vec4_new" => rename_call(target_vec4),
+        "vec2_add" => infix_call("+"),
+        "vec3_add" => infix_call("+"),
+        "vec2_sub" => infix_call("-"),
+        "vec3_sub" => infix_call("-"),
+        "vec2_mul" => infix_call("*"),
+        "vec3_mul" => infix_call("*"),
+        "vec2_div" => infix_call("/"),
+        "vec3_div" => infix_call("/"),
+        "vec2_dot" => rename_call("dot"),
+        "vec3_dot" => rename_call("dot"),
+        "vec2_length" => rename_call("length"),
+        "vec3_length" => rename_call("length"),
+        "vec2_normalize" => rename_call("normalize"),
+        "vec3_normalize" => rename_call("normalize"),
+        "sqrtf" => rename_call("sqrt"),
+        "sinf" => rename_call("sin"),
+        "cosf" => rename_call("cos"),
+        "tanf" => rename_call("tan"),
+        "fabsf" => rename_call("abs"),
+        "fminf" => rename_call("min"),
+        "fmaxf" => rename_call("max"),
+        "floorf" => rename_call("floor"),
+        "ceilf" => rename_call("ceil"),
+        "powf" => rename_call("pow"),
+        "expf" => rename_call("exp"),
+        "logf" => rename_call("log"),
+        "atan2f" => rename_call("atan2"),
+        "fmodf" => rename_call("fmod"),
+        "mix_f" => rename_call("mix"),
+        "mix_v3" => rename_call("mix"),
+        "clamp_f" => rename_call("clamp"),
+        "smoothstep" => rename_call("smoothstep"),
+        "fract" => rename_call("fract")
+      }.freeze
+    end
+
+    def self.rename_call(name)
+      lambda do |arguments|
+        "#{name}(#{arguments.join(', ')})"
+      end
+    end
+
+    def self.infix_call(operator)
+      lambda do |arguments|
+        raise ArgumentError, "Expected 2 arguments for #{operator} rewrite, got #{arguments.length}" unless arguments.length == 2
+
+        "(#{arguments[0]} #{operator} #{arguments[1]})"
+      end
     end
   end
 end

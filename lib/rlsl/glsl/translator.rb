@@ -5,8 +5,8 @@ module RLSL
     class Translator < BaseTranslator
       PROFILE = BaseTranslator.build_profile(
         uniform_target: :glsl,
-        type_map: {},
-        func_replacements: BaseTranslator.common_func_replacements(
+        identifier_replacements: {},
+        call_rewrites: BaseTranslator.common_call_rewrites(
           target_vec2: "vec2",
           target_vec3: "vec3",
           target_vec4: "vec4"

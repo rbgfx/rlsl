@@ -5,12 +5,12 @@ module RLSL
     class Translator < BaseTranslator
       PROFILE = BaseTranslator.build_profile(
         uniform_target: :msl,
-        type_map: {
+        identifier_replacements: {
           "vec2" => "float2",
           "vec3" => "float3",
           "vec4" => "float4"
         },
-        func_replacements: BaseTranslator.common_func_replacements(
+        call_rewrites: BaseTranslator.common_call_rewrites(
           target_vec2: "float2",
           target_vec3: "float3",
           target_vec4: "float4"
