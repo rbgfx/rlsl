@@ -7,6 +7,9 @@ require_relative "type_inference/type_environment"
 require_relative "type_inference/call_type_resolver"
 require_relative "type_inference/field_type_resolver"
 require_relative "type_inference/collection_type_resolver"
+require_relative "type_inference/expression_inferer"
+require_relative "type_inference/definition_inferer"
+require_relative "type_inference/control_flow_inferer"
 
 module RLSL
   module Prism
@@ -53,6 +56,23 @@ module RLSL
           custom_functions: @custom_functions,
           register: method(:register)
         )
+        @expression_inferer = ExpressionInferer.new(
+          infer: method(:infer),
+          lookup: method(:lookup),
+          call_type_resolver: @call_type_resolver,
+          field_type_resolver: @field_type_resolver,
+          collection_type_resolver: @collection_type_resolver
+        )
+        @definition_inferer = DefinitionInferer.new(
+          infer: method(:infer),
+          register: method(:register),
+          collection_type_resolver: @collection_type_resolver
+        )
+        @control_flow_inferer = ControlFlowInferer.new(
+          infer: method(:infer),
+          infer_child_scope: method(:infer_child_scope),
+          infer_in_scope: method(:infer_in_scope)
+        )
 
         uniforms.each do |name, type|
           register(name, type)
@@ -95,161 +115,87 @@ module RLSL
       end
 
       def infer_var_decl(node)
-        infer(node.initializer) if node.initializer
-        node.type ||= node.initializer&.type
-        register(node.name, node.type) if node.type
-        node
+        @definition_inferer.infer_var_decl(node)
       end
 
       def infer_var_ref(node)
-        node.type ||= lookup(node.name)
-        node
+        @expression_inferer.infer_var_ref(node)
       end
 
       def infer_literal(node)
-        node
+        @expression_inferer.infer_literal(node)
       end
 
       def infer_bool_literal(node)
-        node.type = :bool
-        node
+        @expression_inferer.infer_bool_literal(node)
       end
 
       def infer_binary_op(node)
-        infer(node.left)
-        infer(node.right)
-
-        node.type = Builtins.binary_op_result_type(
-          node.operator,
-          node.left.type,
-          node.right.type
-        )
-        node
+        @expression_inferer.infer_binary_op(node)
       end
 
       def infer_unary_op(node)
-        infer(node.operand)
-
-        case node.operator.to_s
-        when "-"
-          node.type = node.operand.type
-        when "!"
-          node.type = :bool
-        end
-        node
+        @expression_inferer.infer_unary_op(node)
       end
 
       def infer_func_call(node)
-        node.args.each { |arg| infer(arg) }
-        infer(node.receiver) if node.receiver
-
-        node.type = @call_type_resolver.resolve(node)
-        node
+        @expression_inferer.infer_func_call(node)
       end
 
       def infer_field_access(node)
-        infer(node.receiver)
-        node.type = @field_type_resolver.resolve(node)
-        node
+        @expression_inferer.infer_field_access(node)
       end
 
       def infer_swizzle(node)
-        infer(node.receiver)
-        node.type = Builtins.swizzle_type(node.components)
-        node
+        @expression_inferer.infer_swizzle(node)
       end
 
       def infer_if_statement(node)
-        infer(node.condition)
-        infer_child_scope(node.then_branch)
-        infer_child_scope(node.else_branch) if node.else_branch
-
-        node.type = node.then_branch.type
-        node
+        @control_flow_inferer.infer_if_statement(node)
       end
 
       def infer_ternary(node)
-        infer(node.condition)
-        infer(node.then_expr)
-        infer(node.else_expr)
-        node.type = node.then_expr.type
-        node
+        @control_flow_inferer.infer_ternary(node)
       end
 
       def infer_return(node)
-        infer(node.expression) if node.expression
-        node.type = node.expression&.type
-        node
+        @control_flow_inferer.infer_return(node)
       end
 
       def infer_assignment(node)
-        infer(node.target)
-        infer(node.value)
-        node.type = node.value.type
-        node
+        @definition_inferer.infer_assignment(node)
       end
 
       def infer_for_loop(node)
-        infer(node.range_start)
-        infer(node.range_end)
-
-        infer_in_scope(node.variable => :int) do
-          infer(node.body)
-        end
-
-        node.type = nil
-        node
+        @control_flow_inferer.infer_for_loop(node)
       end
 
       def infer_while_loop(node)
-        infer(node.condition)
-        infer_child_scope(node.body)
-        node.type = nil
-        node
+        @control_flow_inferer.infer_while_loop(node)
       end
 
       def infer_function_definition(node)
-        infer_in_scope(node.param_types) do
-          infer(node.body)
-
-          node.return_type ||= node.body&.type
-          node.type = node.return_type
-        end
-
-        node
+        @control_flow_inferer.infer_function_definition(node)
       end
 
       def infer_parenthesized(node)
-        infer(node.expression)
-        node.type = node.expression.type
-        node
+        @expression_inferer.infer_parenthesized(node)
       end
 
       def infer_array_literal(node)
-        node.elements.each { |elem| infer(elem) }
-        node.type = @collection_type_resolver.resolve_array_literal(node)
-        node
+        @expression_inferer.infer_array_literal(node)
       end
 
       def infer_array_index(node)
-        infer(node.array)
-        infer(node.index)
-        node.type = @collection_type_resolver.resolve_array_index(node)
-        node
+        @expression_inferer.infer_array_index(node)
       end
 
       def infer_global_decl(node)
-        infer(node.initializer) if node.initializer
-        node.type ||= @collection_type_resolver.resolve_global_decl(node)
-        register(node.name, node.type) if node.type
-        node
+        @definition_inferer.infer_global_decl(node)
       end
 
       def infer_multiple_assignment(node)
-        infer(node.value)
-        @collection_type_resolver.assign_multiple_targets(node)
-        node.type = nil
-        node
+        @definition_inferer.infer_multiple_assignment(node)
       end
 
       def infer_child_scope(node)
