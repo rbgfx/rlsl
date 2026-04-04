@@ -38,6 +38,11 @@ class RLSLTypesTest < Test::Unit::TestCase
     assert_equal "int", spec.c_type
   end
 
+  test "supported? identifies known and unknown types" do
+    assert_true RLSL::UniformTypes.supported?(:vec3)
+    assert_false RLSL::UniformTypes.supported?(:unknown)
+  end
+
   test "compiled capability is explicit" do
     assert_true RLSL::UniformTypes.fetch(:float).compiled?
     assert_false RLSL::UniformTypes.fetch(:mat4).compiled?

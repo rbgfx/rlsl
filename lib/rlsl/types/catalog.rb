@@ -3,6 +3,10 @@
 module RLSL
   module UniformTypes
     module Catalog
+      def supported?(type)
+        UNIFORM_TYPE_SPECS.key?(type.to_sym)
+      end
+
       def fetch(type)
         UNIFORM_TYPE_SPECS.fetch(type) do
           raise ArgumentError, "Unsupported uniform type: #{type.inspect}"

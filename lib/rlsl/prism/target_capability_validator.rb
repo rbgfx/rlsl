@@ -121,12 +121,10 @@ module RLSL
 
         raise TargetCapabilityError,
               "Unsupported #{target.to_s.upcase} type #{type.inspect} in #{context}"
-      rescue ArgumentError
-        nil
       end
 
       def uniform_type_symbol?(type)
-        type.is_a?(Symbol) && RLSL::UNIFORM_TYPES.include?(type)
+        type.is_a?(Symbol) && RLSL::UniformTypes.supported?(type)
       end
     end
   end
