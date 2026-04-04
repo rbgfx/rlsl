@@ -77,6 +77,28 @@ class PrismTypeInferenceExpressionTest < Test::Unit::TestCase
     assert_include error.message, "Invalid argument 1 for noise"
   end
 
+  test "custom calls accept int arithmetic expressions for int parameters" do
+    inference = build_type_inference(
+      {},
+      { get_color: { returns: :vec3, params: { i: :int } } }
+    )
+    call = RLSL::Prism::IR::FuncCall.new(
+      :get_color,
+      [
+        RLSL::Prism::IR::BinaryOp.new(
+          "+",
+          literal(1, :int),
+          literal(2, :int)
+        )
+      ]
+    )
+
+    inference.infer(call)
+
+    assert_equal :vec3, call.type
+    assert_equal :int, call.args.first.type
+  end
+
   test "field access and swizzles infer component and vector types" do
     component = RLSL::Prism::IR::FieldAccess.new(var(:color, :vec3), "x")
     uniform_field = RLSL::Prism::IR::FieldAccess.new(var(:u), :texture_size)

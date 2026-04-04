@@ -60,4 +60,13 @@ class ShaderBuilderCoreTest < Test::Unit::TestCase
     assert_kind_of String, glsl
     assert glsl.include?("#version 450")
   end
+
+  test "native extension compiler hashes artifacts without missing digest" do
+    compiler = RLSL::ShaderBuilder::NativeExtensionCompiler.new(:test_shader)
+
+    artifact = compiler.send(:artifact_for, "void test(void) {}")
+
+    assert_match(/^test_shader_[0-9a-f]{8}$/, artifact.ext_name)
+    assert_include artifact.file, "test_shader."
+  end
 end

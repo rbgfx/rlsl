@@ -92,6 +92,13 @@ class FunctionContextTest < Test::Unit::TestCase
     assert_equal(expected, @ctx.functions[:complex_func])
   end
 
+  test "define registers tuple return signatures" do
+    @ctx.define(:basis, returns: %i[vec3 vec3], params: { n: :vec3 })
+
+    expected = { returns: %i[vec3 vec3], params: { n: :vec3 } }
+    assert_equal(expected, @ctx.functions[:basis])
+  end
+
   test "string name is converted to symbol" do
     @ctx.float("my_func")
     assert @ctx.functions.key?(:my_func)
@@ -105,6 +112,12 @@ class FunctionContextTest < Test::Unit::TestCase
   test "define rejects unsupported types" do
     assert_raise(ArgumentError) do
       @ctx.define(:broken, returns: :unknown)
+    end
+  end
+
+  test "define rejects unsupported tuple element types" do
+    assert_raise(ArgumentError) do
+      @ctx.define(:broken, returns: %i[vec3 unknown])
     end
   end
 

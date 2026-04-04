@@ -41,6 +41,10 @@ module RLSL
     end
 
     def validate_type!(type)
+      if type.is_a?(Array)
+        return type.map { |element_type| validate_type!(element_type) }
+      end
+
       UniformTypes.fetch(type)
       type
     end

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "digest"
+
 module RLSL
   class ShaderBuilder
     class NativeExtensionCompiler
@@ -35,12 +37,12 @@ module RLSL
       def compile(artifact, c_code)
         FileUtils.mkdir_p(artifact.directory)
 
-        File.write(File.join(artifact.directory, "#{artifact.ext_name}.c"), c_code)
-        File.write(File.join(artifact.directory, "extconf.rb"), extconf_source(artifact.ext_name))
+        File.write(File.join(artifact.directory, "#{@shader_name}.c"), c_code)
+        File.write(File.join(artifact.directory, "extconf.rb"), extconf_source(@shader_name))
 
         Dir.chdir(artifact.directory) do
-          system("#{@ruby_bin} extconf.rb > /dev/null 2>&1") or raise "extconf failed for #{artifact.ext_name}"
-          system("/usr/bin/make > /dev/null 2>&1") or raise "make failed for #{artifact.ext_name}"
+          run_command(@ruby_bin, "extconf.rb") or raise "extconf failed for #{artifact.ext_name}"
+          run_command("/usr/bin/make") or raise "make failed for #{artifact.ext_name}"
         end
       end
 
@@ -53,6 +55,16 @@ module RLSL
           end
           create_makefile("#{ext_name}")
         RUBY
+      end
+
+      def run_command(*args)
+        if defined?(Bundler) && Bundler.respond_to?(:with_unbundled_env)
+          Bundler.with_unbundled_env do
+            system(*args, out: File::NULL, err: File::NULL)
+          end
+        else
+          system(*args, out: File::NULL, err: File::NULL)
+        end
       end
     end
   end

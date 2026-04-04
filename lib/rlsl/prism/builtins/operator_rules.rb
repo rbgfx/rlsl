@@ -61,7 +61,7 @@ module RLSL
             elsif scalar_type?(left_type) && vector_type?(right_type)
               right_type
             else
-              :float
+              scalar_arithmetic_result_type(op, left_type, right_type)
             end
           end
         end
@@ -76,6 +76,14 @@ module RLSL
 
         def scalar_type?(type)
           %i[float int].include?(type)
+        end
+
+        def scalar_arithmetic_result_type(op, left_type, right_type)
+          return :float unless scalar_type?(left_type) && scalar_type?(right_type)
+          return :float if op.to_s == "/"
+          return :int if left_type == :int && right_type == :int
+
+          :float
         end
 
         def matrix_vector_result(matrix_type)

@@ -39,6 +39,19 @@ class PrismASTVisitorExtendedTest < Test::Unit::TestCase
     assert_kind_of RLSL::Prism::IR::ArrayIndex, stmt.initializer
   end
 
+  test "parse integer literals as int nodes" do
+    source = <<~RUBY
+      idx = 0
+      return idx
+    RUBY
+    ir = @visitor.parse(source)
+    stmt = ir.statements.first
+
+    assert_kind_of RLSL::Prism::IR::VarDecl, stmt
+    assert_equal :int, stmt.initializer.type
+    assert_equal 0, stmt.initializer.value
+  end
+
   test "parse global variable read" do
     source = <<~RUBY
       $global_var = 1.0

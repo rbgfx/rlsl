@@ -36,6 +36,11 @@ class PrismBuiltinsTest < Test::Unit::TestCase
     assert_equal :vec3, RLSL::Prism::Builtins.binary_op_result_type("+", :vec3, :vec3)
     assert_equal :vec3, RLSL::Prism::Builtins.binary_op_result_type("*", :vec3, :float)
     assert_equal :float, RLSL::Prism::Builtins.binary_op_result_type("+", :float, :float)
+    assert_equal :int, RLSL::Prism::Builtins.binary_op_result_type("+", :int, :int)
+    assert_equal :int, RLSL::Prism::Builtins.binary_op_result_type("-", :int, :int)
+    assert_equal :int, RLSL::Prism::Builtins.binary_op_result_type("*", :int, :int)
+    assert_equal :int, RLSL::Prism::Builtins.binary_op_result_type("%", :int, :int)
+    assert_equal :float, RLSL::Prism::Builtins.binary_op_result_type("/", :int, :int)
   end
 
   test "binary_op_result_type for comparison" do

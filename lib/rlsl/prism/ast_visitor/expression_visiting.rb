@@ -24,7 +24,7 @@ module RLSL
         private
 
         def visit_integer(node)
-          IR::Literal.new(node.value.to_f, :float)
+          IR::Literal.new(node.value, :int)
         end
 
         def visit_float(node)
