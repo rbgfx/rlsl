@@ -4,7 +4,6 @@ require "prism"
 
 require_relative "ir/nodes"
 require_relative "compilation_unit"
-require_relative "compilation_session"
 require_relative "source_unit"
 require_relative "source_extractor"
 require_relative "builtins"
@@ -34,17 +33,6 @@ module RLSL
         @uniforms = uniforms
         @custom_functions = custom_functions
         @source_extractor = SourceExtractor.new
-        @session = CompilationSession.new
-      end
-
-      def parse_block(block)
-        @session.current = compile_block(block)
-        ir
-      end
-
-      def parse_source(source)
-        @session.current = compile_source(source)
-        ir
       end
 
       def compile_block(block)
@@ -62,14 +50,7 @@ module RLSL
         )
       end
 
-      def ir
-        @session.ir
-      end
-
-      def emit(target, needs_return: true, compilation: nil)
-        compilation ||= @session.current
-        raise "No IR parsed yet. Call parse_block or parse_source first." unless compilation
-
+      def emit(target, compilation:, needs_return: true)
         emitter = resolve_emitter(target)
         validate_target_capabilities!(compilation.ir, target)
         emitter.emit(compilation.ir, needs_return: needs_return)

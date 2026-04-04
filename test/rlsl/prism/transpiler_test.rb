@@ -9,7 +9,7 @@ class PrismTranspilerTest < Test::Unit::TestCase
 
   test "parse simple variable declaration" do
     source = "x = 1.0\nreturn x"
-    ir = @transpiler.parse_source(source)
+    ir = compile_source(source)
 
     assert_kind_of RLSL::Prism::IR::Block, ir
     assert_equal 2, ir.statements.length
@@ -18,7 +18,7 @@ class PrismTranspilerTest < Test::Unit::TestCase
 
   test "parse binary operation" do
     source = "x = 1.0 + 2.0\nreturn x"
-    ir = @transpiler.parse_source(source)
+    ir = compile_source(source)
 
     stmt = ir.statements.first
     assert_kind_of RLSL::Prism::IR::VarDecl, stmt
@@ -28,7 +28,7 @@ class PrismTranspilerTest < Test::Unit::TestCase
 
   test "parse function call" do
     source = "x = sin(0.5)\nreturn x"
-    ir = @transpiler.parse_source(source)
+    ir = compile_source(source)
 
     stmt = ir.statements.first
     assert_kind_of RLSL::Prism::IR::FuncCall, stmt.initializer
@@ -37,7 +37,7 @@ class PrismTranspilerTest < Test::Unit::TestCase
 
   test "parse vec3 constructor" do
     source = "color = vec3(1.0, 0.0, 0.0)\nreturn color"
-    ir = @transpiler.parse_source(source)
+    ir = compile_source(source)
 
     stmt = ir.statements.first
     assert_kind_of RLSL::Prism::IR::FuncCall, stmt.initializer
@@ -47,7 +47,7 @@ class PrismTranspilerTest < Test::Unit::TestCase
 
   test "parse field access" do
     source = "x = v.x\nreturn x"
-    ir = @transpiler.parse_source(source)
+    ir = compile_source(source)
 
     stmt = ir.statements.first
     assert_kind_of RLSL::Prism::IR::FieldAccess, stmt.initializer
@@ -88,7 +88,7 @@ class PrismTranspilerTest < Test::Unit::TestCase
 
   test "type inference for vec3" do
     source = "color = vec3(1.0, 0.0, 0.0)"
-    ir = @transpiler.parse_source(source)
+    ir = compile_source(source)
 
     stmt = ir.statements.first
     assert_equal :vec3, stmt.type
@@ -99,7 +99,7 @@ class PrismTranspilerTest < Test::Unit::TestCase
       a = vec2(1.0, 2.0)
       b = a + a
     RUBY
-    ir = @transpiler.parse_source(source)
+    ir = compile_source(source)
 
     # Second statement should be vec2 type
     assert_equal :vec2, ir.statements[1].type
@@ -120,15 +120,15 @@ class PrismTranspilerTest < Test::Unit::TestCase
   end
 
   test "emit raises error for unknown target" do
-    @transpiler.parse_source("x = 1.0\nreturn x")
+    compilation = @transpiler.compile_source("x = 1.0\nreturn x")
     assert_raise(RuntimeError) do
-      @transpiler.emit(:unknown_target)
+      @transpiler.emit(:unknown_target, compilation: compilation)
     end
   end
 
   test "emit accepts target as string" do
-    @transpiler.parse_source("x = 1.0\nreturn x")
-    result = @transpiler.emit("c")
+    compilation = @transpiler.compile_source("x = 1.0\nreturn x")
+    result = @transpiler.emit("c", compilation: compilation)
     assert_kind_of String, result
   end
 
@@ -137,25 +137,46 @@ class PrismTranspilerTest < Test::Unit::TestCase
     assert result.include?("1.0f")
   end
 
-  test "parse_source registers frag_coord and resolution" do
-    @transpiler.parse_source("return frag_coord")
-    # Should not raise - frag_coord is registered
-    result = @transpiler.emit(:c)
+  test "compile_source registers frag_coord and resolution" do
+    compilation = @transpiler.compile_source("return frag_coord")
+    result = @transpiler.emit(:c, compilation: compilation)
     assert result.include?("frag_coord")
   end
 
-  test "parse_source handles empty body" do
-    @transpiler.parse_source("return 0.0")
-    result = @transpiler.emit(:c)
+  test "compile_source handles empty body" do
+    compilation = @transpiler.compile_source("return 0.0")
+    result = @transpiler.emit(:c, compilation: compilation)
     assert result.include?("return 0.0f")
   end
 
-  test "parse_source raises for invalid builtin function calls" do
+  test "compile_source raises for invalid builtin function calls" do
     error = assert_raise(RLSL::Prism::SignatureError) do
-      @transpiler.parse_source("x = sin(vec2(1.0, 2.0))\nreturn x")
+      @transpiler.compile_source("x = sin(vec2(1.0, 2.0))\nreturn x")
     end
 
     assert_include error.message, "expected float, got vec2"
+  end
+
+  test "compile_source preserves int arithmetic for custom int parameters" do
+    transpiler = RLSL::Prism::Transpiler.new(
+      { time: :float },
+      { get_color: { returns: :vec3, params: { i: :int } } }
+    )
+
+    source = <<~RUBY
+      qx = 0
+      qy = 0
+      idx = qx + qy
+      color = get_color(idx)
+      return color
+    RUBY
+
+    ir = transpiler.compile_source(source).ir
+
+    assert_equal :int, ir.statements[0].type
+    assert_equal :int, ir.statements[1].type
+    assert_equal :int, ir.statements[2].type
+    assert_equal :vec3, ir.statements[3].type
   end
 
   test "emit raises for target-unsupported builtin" do
@@ -177,8 +198,8 @@ class PrismTranspilerTest < Test::Unit::TestCase
   end
 
   test "emit with needs_return false" do
-    @transpiler.parse_source("x = 1.0\nreturn x")
-    result = @transpiler.emit(:c, needs_return: false)
+    compilation = @transpiler.compile_source("x = 1.0\nreturn x")
+    result = @transpiler.emit(:c, compilation: compilation, needs_return: false)
     assert_kind_of String, result
   end
 
@@ -192,5 +213,11 @@ class PrismTranspilerTest < Test::Unit::TestCase
 
     assert_equal [], compilation.source_unit.params
     assert_kind_of RLSL::Prism::IR::Block, compilation.ir
+  end
+
+  private
+
+  def compile_source(source)
+    @transpiler.compile_source(source).ir
   end
 end
