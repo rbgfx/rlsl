@@ -1308,6 +1308,34 @@ class PrismSourceExtractorTest < Test::Unit::TestCase
     source = @extractor.extract(block)
     assert source.include?("x = 1.0 if true")
   end
+
+  test "extract keeps outer block when nested blocks exist" do
+    block = proc do
+      values = [1.0].map do |x|
+        x + 1.0
+      end
+      values
+    end
+
+    source = @extractor.extract(block)
+    assert source.include?("values = [1.0].map do |x|")
+    assert source.include?("x + 1.0")
+    assert source.include?("values")
+  end
+
+  test "extract locates the block for the given source line" do
+    proc do
+      :first
+    end
+
+    block = proc do
+      :second
+    end
+
+    source = @extractor.extract(block)
+    assert source.include?(":second")
+    assert_not_include source, ":first"
+  end
 end
 
 class PrismASTVisitorTest < Test::Unit::TestCase

@@ -1,22 +1,23 @@
 # frozen_string_literal: true
 
-require_relative "source_extractor/block_tokenizer"
-require_relative "source_extractor/block_capture"
+require "prism"
+
+require_relative "source_extractor/block_locator"
 
 module RLSL
   module Prism
     class SourceExtractor
       class SourceNotAvailable < StandardError; end
 
-      def initialize(block_capture = BlockCapture.new)
-        @block_capture = block_capture
+      def initialize(block_locator = BlockLocator.new)
+        @block_locator = block_locator
       end
 
       def extract(block)
         file, line_num = block.source_location
         raise SourceNotAvailable, "Block source location not available" unless file && File.exist?(file)
 
-        @block_capture.extract(File.readlines(file), line_num - 1)
+        @block_locator.extract(File.read(file), line_num)
       end
 
       def extract_from_string(source)
