@@ -9,19 +9,22 @@ end
 
 module RLSL
   module MSL
-    class Shader
+    class Shader < RuntimeShader
       attr_reader :name, :msl_source
 
       def initialize(name, uniforms, msl_source)
-        @name = name
-        @uniform_types = uniforms
-        @uniform_names = uniforms.keys
+        super(name, uniforms)
         @msl_source = msl_source
         @compiled_handles = {}
+        @uniform_buffer_packer = UniformBufferPacker.new(@name, @uniform_types, @uniform_names)
       end
 
       def metal?
         true
+      end
+
+      def render(handle, width, height, uniforms = {})
+        render_metal(handle, width, height, uniforms)
       end
 
       def render_metal(handle, width, height, uniforms = {})
@@ -43,54 +46,7 @@ module RLSL
       private
 
       def pack_uniforms(uniforms, width, height)
-        normalized_uniforms = UniformTypes.normalize_values(@uniform_types, uniforms, shader_name: @name)
-        data = [width.to_f, height.to_f].pack("ff")
-        current_offset = 8
-
-        @uniform_names.each do |name|
-          value = normalized_uniforms[name]
-          spec = UniformTypes.metal_spec(@uniform_types[name])
-          alignment = spec.metal_alignment
-
-          padding_needed = (alignment - (current_offset % alignment)) % alignment
-          data += "\x00" * padding_needed
-          current_offset += padding_needed
-
-          data += pack_uniform_value(spec, value)
-          current_offset += spec.metal_size
-        end
-
-        data.ljust(256, "\x00")
-      end
-
-      def pack_uniform_value(spec, value)
-        case spec.wrapper_kind
-        when :float
-          [value.to_f].pack("f")
-        when :int
-          [value.to_i].pack("l")
-        when :bool
-          [value ? 1 : 0].pack("l")
-        when :vector
-          pack_vector_uniform(spec.vector_size, value)
-        else
-          raise ArgumentError, "Unsupported Metal uniform type: #{spec.c_type}"
-        end
-      end
-
-      def pack_vector_uniform(vector_size, value)
-        components = Array(value).map(&:to_f)
-
-        case vector_size
-        when 2
-          components.pack("ff")
-        when 3
-          (components + [0.0]).pack("ffff")
-        when 4
-          components.pack("ffff")
-        else
-          raise ArgumentError, "Unsupported vector size: #{vector_size}"
-        end
+        @uniform_buffer_packer.pack(width, height, uniforms)
       end
     end
   end

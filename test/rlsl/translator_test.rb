@@ -16,6 +16,19 @@ class MSLShaderTest < Test::Unit::TestCase
     assert_true shader.metal?
   end
 
+  test "render delegates to render_metal" do
+    shader = RLSL::MSL::Shader.new(:test, {}, "")
+    captured_args = nil
+
+    shader.define_singleton_method(:render_metal) do |*args|
+      captured_args = args
+    end
+
+    shader.render(:handle, 640, 480, { time: 1.0 })
+
+    assert_equal [:handle, 640, 480, { time: 1.0 }], captured_args
+  end
+
   test "pack_uniforms packs float uniform" do
     uniforms = { time: :float }
     shader = RLSL::MSL::Shader.new(:test, uniforms, "")
