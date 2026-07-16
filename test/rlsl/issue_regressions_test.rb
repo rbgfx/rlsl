@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "open3"
+require "rbconfig"
 require "tmpdir"
 
 require_relative "../test_helper"
@@ -259,14 +261,7 @@ class IssueRegressionsTest < Test::Unit::TestCase
         :buffer_shader,
         cache_dir: cache_dir
       ).build(code)
-      require artifact.file
-
-      assert_raise(ArgumentError) do
-        RLSL::CompiledShaders.buffer_shader_render("\0" * 3, 1, 1)
-      end
-      assert_nothing_raised do
-        RLSL::CompiledShaders.buffer_shader_render("\0" * 4, 1, 1)
-      end
+      assert_native_buffer_contract(artifact.file)
     end
   end
 
@@ -381,5 +376,26 @@ class IssueRegressionsTest < Test::Unit::TestCase
 
     assert_kind_of String, source
     assert_include source, "kernel void compute_shader"
+  end
+
+  private
+
+  def assert_native_buffer_contract(extension_file)
+    script = <<~'RUBY'
+      require ARGV.fetch(0)
+
+      begin
+        RLSL::CompiledShaders.buffer_shader_render("abc".b, 1, 1)
+      rescue ArgumentError
+        # Expected: the renderer must reject a buffer shorter than four bytes.
+      else
+        abort "short buffer was accepted"
+      end
+
+      RLSL::CompiledShaders.buffer_shader_render("abcd".b, 1, 1)
+    RUBY
+    output, status = Open3.capture2e(RbConfig.ruby, "-e", script, extension_file)
+
+    assert status.success?, output
   end
 end
