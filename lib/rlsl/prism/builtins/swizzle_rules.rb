@@ -12,7 +12,7 @@ module RLSL
         }.freeze
 
         SINGLE_COMPONENT_FIELDS = %w[x y z w r g b a s t p q].freeze
-        SWIZZLE_PATTERNS = /\A[xyzwrgba]{2,4}\z/
+        SWIZZLE_PATTERNS = /\A(?:[xyzw]{2,4}|[rgba]{2,4}|[stpq]{2,4})\z/
 
         module_function
 
@@ -30,6 +30,15 @@ module RLSL
           when 3 then :vec3
           when 4 then :vec4
           else :float
+          end
+        end
+
+        def valid_for_type?(components, receiver_type)
+          vector_size = { vec2: 2, vec3: 3, vec4: 4 }[receiver_type]
+          return false unless vector_size
+
+          components.to_s.each_char.all? do |component|
+            SWIZZLE_COMPONENTS.fetch(component) < vector_size
           end
         end
       end

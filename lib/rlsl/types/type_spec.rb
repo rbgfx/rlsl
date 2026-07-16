@@ -116,8 +116,8 @@ module RLSL
     bool: UniformTypeSpec.new(
       c_type: "int",
       glsl_type: "bool",
-      wgsl_type: "bool",
-      msl_type: "bool",
+      wgsl_type: "i32",
+      msl_type: "int",
       wrapper_kind: :bool,
       metal_alignment: 4,
       metal_size: 4,

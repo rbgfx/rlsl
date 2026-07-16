@@ -12,14 +12,14 @@ module RLSL
             end.join(", ")
 
             if node.return_type.is_a?(Array)
-              @current_return_struct_name = "#{name}_result"
               struct_def = emit_result_struct(name, node.return_type)
-              body = emit_indented_block(node.body, needs_return: true)
-              @current_return_struct_name = nil
-              "#{struct_def}static inline #{name}_result #{name}(#{params}) {\n#{body}\n#{indent}}\n"
+              body = with_return_struct_name("#{name}_result") do
+                emit_indented_block(node.body, needs_return: true)
+              end
+              "#{struct_def}#{function_qualifier}#{name}_result #{name}(#{params}) {\n#{body}#{indent}}\n"
             else
               body = emit_indented_block(node.body, needs_return: true)
-              "static inline #{type_name(node.return_type || :float)} #{name}(#{params}) {\n#{body}\n#{indent}}\n"
+              "#{function_qualifier}#{type_name(node.return_type || :float)} #{name}(#{params}) {\n#{body}#{indent}}\n"
             end
           end
 
@@ -29,7 +29,7 @@ module RLSL
           end
 
           def current_return_struct_name
-            @current_return_struct_name || "result"
+            @return_struct_name_stack.last || "result"
           end
 
           def emit_array_literal(node, for_static_init: false)

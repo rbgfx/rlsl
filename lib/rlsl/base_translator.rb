@@ -123,6 +123,11 @@ module RLSL
       lines
     end
 
+    def indent_source(source, spaces)
+      prefix = " " * spaces
+      source.to_s.lines.map { |line| line.strip.empty? ? line : "#{prefix}#{line}" }.join.rstrip
+    end
+
     def profile
       return self.class::PROFILE if self.class.const_defined?(:PROFILE, false)
 

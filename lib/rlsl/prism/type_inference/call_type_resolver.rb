@@ -15,20 +15,25 @@ module RLSL
         custom_function = @custom_functions[node.name.to_sym]
         return resolve_custom(node, custom_function) if custom_function
 
-        node.receiver&.type
+        raise SignatureError, "Unknown shader function #{node.name}"
       end
 
       private
 
       def resolve_builtin(node, signature)
-        arg_types = node.args.map(&:type)
+        arg_types = effective_arg_types(node)
         @call_validator.validate_builtin!(node, arg_types, signature)
         Builtins.resolve_return_type(signature[:returns], arg_types)
       end
 
       def resolve_custom(node, signature)
-        @call_validator.validate_custom!(node.name, node.args.map(&:type), signature)
+        @call_validator.validate_custom!(node.name, effective_arg_types(node), signature)
         signature[:returns]
+      end
+
+      def effective_arg_types(node)
+        types = node.args.map(&:type)
+        node.receiver ? [node.receiver.type, *types] : types
       end
     end
   end

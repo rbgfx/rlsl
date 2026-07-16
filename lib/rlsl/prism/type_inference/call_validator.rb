@@ -15,7 +15,11 @@ module RLSL
 
       def validate_custom!(name, arg_types, signature)
         params = signature[:params]
-        return unless params
+        unless params
+          return if arg_types.empty?
+
+          raise SignatureError, "Function #{name} requires explicit parameter types"
+        end
 
         validate_signature!(name, arg_types, params.values)
       end

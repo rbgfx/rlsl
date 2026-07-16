@@ -6,7 +6,7 @@ require_relative "type_inference/type_shapes"
 
 module RLSL
   module Prism
-    class TargetCapabilityError < StandardError; end
+    class TargetCapabilityError < RLSL::Error; end
 
     class TargetCapabilityValidator
       include TypeShapes

@@ -10,6 +10,8 @@ require_relative "builtins"
 require_relative "ast_visitor"
 require_relative "type_inference"
 require_relative "target_capability_validator"
+require_relative "mutation_analyzer"
+require_relative "return_flow_validator"
 require_relative "emitters/base_emitter"
 require_relative "emitters/target_emitter"
 require_relative "emitters/c_emitter"
@@ -54,6 +56,7 @@ module RLSL
       def emit(target, compilation:, needs_return: true)
         emitter = resolve_emitter(target)
         validate_target_capabilities!(compilation.ir, target)
+        ReturnFlowValidator.new.validate!(compilation.ir, needs_return: needs_return)
         emitter.emit(compilation.ir, needs_return: needs_return)
       end
 
@@ -87,6 +90,7 @@ module RLSL
       def compile_unit(unit, function_signatures: nil)
         ir = build_ir(unit)
         apply_function_signatures(ir, function_signatures || {})
+        MutationAnalyzer.new.analyze(ir)
         infer_ir(ir)
         CompilationUnit.new(source_unit: unit, ir: ir)
       end
@@ -120,10 +124,16 @@ module RLSL
           next unless stmt.is_a?(IR::FunctionDefinition)
 
           sig = signatures[stmt.name]
-          next unless sig
+          unless sig
+            raise SignatureError, "Function #{stmt.name} requires an explicit signature in functions"
+          end
 
           stmt.return_type = sig[:returns]
           stmt.param_types = sig[:params] || {}
+          unless stmt.params == stmt.param_types.keys
+            raise SignatureError,
+                  "Function #{stmt.name} parameters #{stmt.params.inspect} do not match signature #{stmt.param_types.keys.inspect}"
+          end
         end
       end
     end

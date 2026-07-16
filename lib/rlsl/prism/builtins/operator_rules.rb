@@ -39,6 +39,7 @@ module RLSL
 
         def binary_op_result_type(op, left_type, right_type)
           op_kind = BINARY_OPERATORS[op.to_s]
+          validate_operand_shapes!(op, left_type, right_type)
 
           case op_kind
           when :comparison, :logical
@@ -92,6 +93,21 @@ module RLSL
           when :mat3 then :vec3
           when :mat4 then :vec4
           end
+        end
+
+        def validate_operand_shapes!(op, left_type, right_type)
+          if vector_type?(left_type) && vector_type?(right_type) && left_type != right_type
+            raise SignatureError, "Vector size mismatch for #{op}: #{left_type} and #{right_type}"
+          end
+
+          if matrix_type?(left_type) && vector_type?(right_type) && matrix_vector_result(left_type) != right_type
+            raise SignatureError, "Matrix/vector size mismatch for #{op}: #{left_type} and #{right_type}"
+          end
+
+          return unless vector_type?(left_type) && matrix_type?(right_type)
+          return if left_type == matrix_vector_result(right_type)
+
+          raise SignatureError, "Vector/matrix size mismatch for #{op}: #{left_type} and #{right_type}"
         end
       end
     end

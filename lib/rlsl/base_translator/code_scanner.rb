@@ -88,7 +88,7 @@ module RLSL
         cursor = index + 1
 
         while cursor < @code.length
-          if @code[cursor] == quote && @code[cursor - 1] != "\\"
+          if @code[cursor] == quote && !escaped?(cursor)
             return [@code[index..cursor], cursor + 1]
           end
 
@@ -96,6 +96,17 @@ module RLSL
         end
 
         raise ArgumentError, "Unterminated string literal in translation source"
+      end
+
+      def escaped?(index)
+        backslashes = 0
+        cursor = index - 1
+        while cursor >= 0 && @code[cursor] == "\\"
+          backslashes += 1
+          cursor -= 1
+        end
+
+        backslashes.odd?
       end
     end
   end

@@ -46,10 +46,10 @@ class PrismTranspilerTest < Test::Unit::TestCase
   end
 
   test "parse field access" do
-    source = "x = v.x\nreturn x"
+    source = "v = vec3(1.0, 2.0, 3.0)\nx = v.x\nreturn x"
     ir = compile_source(source)
 
-    stmt = ir.statements.first
+    stmt = ir.statements[1]
     assert_kind_of RLSL::Prism::IR::FieldAccess, stmt.initializer
     assert_equal "x", stmt.initializer.field
   end
@@ -184,7 +184,7 @@ class PrismTranspilerTest < Test::Unit::TestCase
       @transpiler.transpile_source("m = mat2(1.0)\nreturn determinant(m)", :c)
     end
 
-    assert_include error.message, "Builtin determinant is not supported on C"
+    assert_include error.message, "Builtin mat2 is not supported on C"
   end
 
   test "emit raises for target-unsupported uniform types used by builtins" do
@@ -203,16 +203,14 @@ class PrismTranspilerTest < Test::Unit::TestCase
     assert_kind_of String, result
   end
 
-  test "compile_helpers strips parameters before inference" do
+  test "compile_helpers strips outer block parameters and rejects their use" do
     transpiler = RLSL::Prism::Transpiler.new
     block = proc do |uv|
       uv
     end
 
-    compilation = transpiler.compile_helpers(block)
-
-    assert_equal [], compilation.source_unit.params
-    assert_kind_of RLSL::Prism::IR::Block, compilation.ir
+    error = assert_raise(RLSL::Prism::SignatureError) { transpiler.compile_helpers(block) }
+    assert_include error.message, "Unknown shader function uv"
   end
 
   private

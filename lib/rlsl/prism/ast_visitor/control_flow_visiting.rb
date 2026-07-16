@@ -29,10 +29,11 @@ module RLSL
 
         def visit_if(node)
           condition = visit(node.predicate)
-          then_branch = visit_with_scoped_vars(node.statements)
-          else_branch = node.subsequent ? visit_with_scoped_vars(node.subsequent) : nil
+          hoisted_variables = hoist_branch_variables(node)
+          then_branch = visit(node.statements)
+          else_branch = node.subsequent ? visit(node.subsequent) : nil
 
-          IR::IfStatement.new(condition, then_branch, else_branch)
+          IR::IfStatement.new(condition, then_branch, else_branch, hoisted_variables: hoisted_variables)
         end
 
         def visit_else(node)
@@ -49,38 +50,46 @@ module RLSL
 
         def visit_unless(node)
           condition = IR::UnaryOp.new("!", visit(node.predicate))
-          then_branch = visit_with_scoped_vars(node.statements)
-          else_branch = node.else_clause ? visit_with_scoped_vars(node.else_clause) : nil
+          hoisted_variables = hoist_branch_variables(node)
+          then_branch = visit(node.statements)
+          else_branch = node.else_clause ? visit(node.else_clause) : nil
 
-          IR::IfStatement.new(condition, then_branch, else_branch)
+          IR::IfStatement.new(condition, then_branch, else_branch, hoisted_variables: hoisted_variables)
         end
 
         def visit_return(node)
-          expr = node.arguments ? normalize_expression(visit(node.arguments.arguments.first)) : nil
+          arguments = node.arguments&.arguments || []
+          if arguments.length > 1
+            raise UnsupportedSyntaxError, "Returning multiple values requires an explicitly declared tuple helper"
+          end
+
+          expr = arguments.empty? ? nil : normalize_expression(visit(arguments.first))
           IR::Return.new(expr)
         end
 
         def visit_range(node)
-          [visit(node.left), visit(node.right)]
+          [visit(node.left), visit(node.right), node.exclude_end?]
         end
 
         def visit_for(node)
           range = visit(node.collection)
-          body = visit(node.statements)
-          IR::ForLoop.new(node.index.name.to_sym, range[0], range[1], body)
+          body = visit(node.statements) || IR::Block.new
+          IR::ForLoop.new(node.index.name.to_sym, range[0], range[1], body, exclude_end: range[2])
         end
 
         def visit_call_with_block(node)
-          return visit_plain_call(node) unless times_loop?(node)
+          unless times_loop?(node)
+            raise UnsupportedSyntaxError, "Blocks are only supported for Integer#times loops"
+          end
 
           count = visit(node.receiver)
-          block = visit(node.block)
+          block = visit(node.block) || IR::Block.new
           var_name = extract_block_params(node.block).first || :i
           IR::ForLoop.new(var_name, IR::Literal.new(0, :int), count, block)
         end
 
         def visit_while(node)
-          IR::WhileLoop.new(visit(node.predicate), visit(node.statements))
+          IR::WhileLoop.new(visit(node.predicate), visit(node.statements) || IR::Block.new)
         end
 
         def visit_break(_node)
@@ -89,6 +98,42 @@ module RLSL
 
         def times_loop?(node)
           node.name.to_s == "times" && node.receiver
+        end
+
+        def hoist_branch_variables(node)
+          then_names = definitely_assigned_names(node.statements)
+          else_node = node.respond_to?(:subsequent) ? node.subsequent : node.else_clause
+          else_names = definitely_assigned_names(else_node)
+
+          (then_names & else_names).each_with_object({}) do |name, variables|
+            next if known_variable?(name)
+
+            declare_variable(name)
+            variables[name] = nil
+          end
+        end
+
+        def definitely_assigned_names(node)
+          return Set.new unless node
+
+          case node
+          when ::Prism::StatementsNode
+            node.body.each_with_object(Set.new) do |statement, names|
+              names.merge(definitely_assigned_names(statement))
+            end
+          when ::Prism::LocalVariableWriteNode, ::Prism::LocalVariableOperatorWriteNode
+            Set[node.name.to_sym]
+          when ::Prism::MultiWriteNode
+            Set.new(node.lefts.map { |target| target.name.to_sym })
+          when ::Prism::IfNode
+            definitely_assigned_names(node.statements) & definitely_assigned_names(node.subsequent)
+          when ::Prism::UnlessNode
+            definitely_assigned_names(node.statements) & definitely_assigned_names(node.else_clause)
+          when ::Prism::ElseNode
+            definitely_assigned_names(node.statements)
+          else
+            Set.new
+          end
         end
       end
     end

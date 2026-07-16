@@ -240,7 +240,7 @@ class BaseEmitterTest < Test::Unit::TestCase
 
   test "format_number with integer" do
     result = @emitter.send(:format_number, 1)
-    assert_equal "1.0f", result
+    assert_equal "1", result
   end
 
   test "format_number with float" do

@@ -3,18 +3,27 @@
 module RLSL
   module Prism
     class ControlFlowInferer
-      def initialize(infer:, infer_child_scope:, infer_in_scope:)
+      def initialize(infer:, infer_in_scope:, lookup:)
         @infer = infer
-        @infer_child_scope = infer_child_scope
         @infer_in_scope = infer_in_scope
+        @lookup = lookup
       end
 
       def infer_if_statement(node)
         @infer.call(node.condition)
-        @infer_child_scope.call(node.then_branch)
-        @infer_child_scope.call(node.else_branch) if node.else_branch
+        if node.hoisted_variables.empty?
+          @infer.call(node.then_branch, scoped: true)
+          @infer.call(node.else_branch, scoped: true) if node.else_branch
+        else
+          @infer.call(node.then_branch)
+          @infer.call(node.else_branch) if node.else_branch
+        end
 
-        node.type = node.then_branch.type
+        node.hoisted_variables.each_key do |name|
+          node.hoisted_variables[name] = @lookup.call(name)
+        end
+
+        node.type = node.then_branch&.type
         node
       end
 
@@ -46,7 +55,7 @@ module RLSL
 
       def infer_while_loop(node)
         @infer.call(node.condition)
-        @infer_child_scope.call(node.body)
+        @infer.call(node.body, scoped: true)
         node.type = nil
         node
       end

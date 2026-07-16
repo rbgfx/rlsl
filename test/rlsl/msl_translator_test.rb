@@ -89,7 +89,7 @@ class MSLTranslatorTest < Test::Unit::TestCase
 
     assert msl.include?("float time;")
     assert msl.include?("int frame;")
-    assert msl.include?("bool enabled;")
+    assert msl.include?("int enabled;")
     assert msl.include?("float2 mouse;")
     assert msl.include?("float3 pos;")
     assert msl.include?("float4 color;")

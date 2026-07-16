@@ -70,21 +70,26 @@ module RLSL
 
         protected
 
-        def format_number(value)
-          formatted = super(value)
+        def format_number(value, type: nil)
+          formatted = super(value, type: type)
+          return formatted if type == :int || value.is_a?(Integer)
+
           "#{formatted}f"
         end
 
         def emit_profile_func_call(node)
           name = node.name.to_sym
+          return emit_c_vector_constructor(node) if vector_type?(name)
+          return emit_named_call("atan2f", node.args) if name == :atan && node.args.length == 2
           return emit_named_call("#{node.args.first.type}_#{name}", node.args) if vector_math_call?(name, node)
-          return emit_named_call("mix_v3", node.args) if vector_mix_call?(name, node)
+          return emit_named_call("mix_#{vector_suffix(node.args.first.type)}", node.args) if vector_mix_call?(name, node)
         end
 
         def emit_profile_binary_op(node)
-          return unless vector_type?(node.left.type) && profile.vector_ops.key?(node.operator)
+          return emit_float_modulo(node) if node.operator == "%" && node.type == :float
+          return unless profile.vector_ops.key?(node.operator)
 
-          emit_named_call("#{node.left.type}_#{profile.vector_ops[node.operator]}", [node.left, node.right])
+          emit_vector_binary_op(node)
         end
 
         def emit_bool_literal(node)
@@ -103,6 +108,55 @@ module RLSL
 
         def vector_type?(type)
           %i[vec2 vec3 vec4].include?(type)
+        end
+
+        def vector_suffix(type)
+          { vec2: "v2", vec3: "v3", vec4: "v4" }.fetch(type)
+        end
+
+        def emit_float_modulo(node)
+          emit_named_call("fmodf", [node.left, node.right])
+        end
+
+        def emit_vector_binary_op(node)
+          left_vector = vector_type?(node.left.type)
+          right_vector = vector_type?(node.right.type)
+          return unless left_vector || right_vector
+
+          vector_type = left_vector ? node.left.type : node.right.type
+          operation = profile.vector_ops.fetch(node.operator)
+
+          if left_vector && right_vector
+            suffix = %w[* /].include?(node.operator) ? "_components" : ""
+            return emit_named_call("#{vector_type}_#{operation}#{suffix}", [node.left, node.right])
+          end
+
+          if left_vector
+            return emit_named_call("#{vector_type}_#{operation}_scalar", [node.left, node.right])
+          end
+
+          emit_named_call("#{vector_type}_scalar_#{operation}", [node.left, node.right])
+        end
+
+        def emit_c_vector_constructor(node)
+          size = { vec2: 2, vec3: 3, vec4: 4 }.fetch(node.name.to_sym)
+          components = node.args.flat_map do |argument|
+            if vector_type?(argument.type)
+              %w[x y z w].first({ vec2: 2, vec3: 3, vec4: 4 }.fetch(argument.type)).map do |field|
+                "#{emit(argument)}.#{field}"
+              end
+            else
+              emit(argument)
+            end
+          end
+          components *= size if components.length == 1
+
+          unless components.length == size
+            raise TargetCapabilityError,
+                  "#{node.name} constructor produces #{components.length} components on C, expected #{size}"
+          end
+
+          "#{node.name}_new(#{components.join(', ')})"
         end
       end
     end

@@ -12,7 +12,7 @@ module RLSL
           char = segment[index]
 
           if quote
-            quote = nil if char == quote && segment[index - 1] != "\\"
+            quote = nil if char == quote && !escaped?(segment, index)
           else
             case char
             when '"', "'"
@@ -39,7 +39,7 @@ module RLSL
 
         arguments_source.each_char.with_index do |char, index|
           if quote
-            quote = nil if char == quote && arguments_source[index - 1] != "\\"
+            quote = nil if char == quote && !escaped?(arguments_source, index)
             next
           end
 
@@ -62,6 +62,17 @@ module RLSL
         return [] if arguments.empty? && tail.to_s.strip.empty?
 
         arguments << tail
+      end
+
+      def self.escaped?(source, index)
+        backslashes = 0
+        cursor = index - 1
+        while cursor >= 0 && source[cursor] == "\\"
+          backslashes += 1
+          cursor -= 1
+        end
+
+        backslashes.odd?
       end
     end
   end

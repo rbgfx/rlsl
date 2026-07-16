@@ -33,6 +33,25 @@ module RLSL
             textureLod: "textureLod"
           }
         ).freeze
+
+        protected
+
+        def function_qualifier
+          ""
+        end
+
+        def emit_binary_op(node)
+          if node.operator == "%" && (node.left.type != :int || node.right.type != :int)
+            return "mod(#{emit(node.left)}, #{emit(node.right)})"
+          end
+
+          super
+        end
+
+        def emit_result_struct(func_name, types)
+          fields = types.each_with_index.map { |type, index| "#{type_name(type)} v#{index};" }.join(" ")
+          "struct #{func_name}_result { #{fields} };\n"
+        end
       end
     end
   end

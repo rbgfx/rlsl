@@ -1,8 +1,11 @@
 # frozen_string_literal: true
 
 require "fileutils"
+require "tmpdir"
 
 require_relative "rlsl/version"
+require_relative "rlsl/errors"
+require_relative "rlsl/shader_name"
 require_relative "rlsl/types"
 require_relative "rlsl/uniform_context"
 require_relative "rlsl/function_context"
@@ -19,7 +22,7 @@ require_relative "rlsl/prism/transpiler"
 require_relative "rlsl/shader_builder"
 
 module RLSL
-  CACHE_DIR = File.expand_path("~/.cache/rlsl/compiled")
+  CACHE_DIR = File.join("rlsl", "compiled").freeze
 
   class << self
     def define(name, &block)
@@ -28,6 +31,10 @@ module RLSL
 
     def define_metal(name, &block)
       build_shader(name, &block).build_metal_shader
+    end
+
+    def to_msl(name, &block)
+      define_metal(name, &block).msl_source
     end
 
     def to_wgsl(name, &block)
@@ -40,12 +47,25 @@ module RLSL
 
     def cache_dir
       @cache_dir ||= begin
-        FileUtils.mkdir_p(CACHE_DIR)
-        CACHE_DIR
+        path = File.join(cache_root, CACHE_DIR)
+        FileUtils.mkdir_p(path)
+        path
       end
     end
 
     private
+
+    def cache_root
+      xdg_cache_home = ENV["XDG_CACHE_HOME"]
+      return xdg_cache_home unless xdg_cache_home.to_s.empty?
+
+      home = Dir.home
+      return File.join(home, ".cache") unless home.to_s.empty?
+
+      Dir.tmpdir
+    rescue ArgumentError
+      Dir.tmpdir
+    end
 
     def build_shader(name, &block)
       builder = ShaderBuilder.new(name)

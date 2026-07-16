@@ -31,17 +31,21 @@ module RLSL
 
         def visit_local_variable_operator_write(node)
           name = node.name.to_sym
-          operator = node.operator.to_s.delete_suffix("=")
+          operator = node.binary_operator.to_s
           value = normalize_expression(visit(node.value))
 
-          declare_variable(name)
+          unless known_variable?(name)
+            raise UnsupportedSyntaxError, "Operator assignment requires an initialized variable: #{name}"
+          end
           target = IR::VarRef.new(name)
-          expr = IR::BinaryOp.new(operator, IR::VarRef.new(name), value)
+          expr = IR::BinaryOp.new(operator, IR::VarRef.new(name), IR::Parenthesized.new(value))
           IR::Assignment.new(target, expr)
         end
 
         def visit_local_variable_read(node)
-          IR::VarRef.new(node.name.to_sym, infer_param_type(node.name.to_sym))
+          name = node.name.to_sym
+          emitted_name = parameter_reference?(name) ? emitted_parameter_name(name) : name
+          IR::VarRef.new(emitted_name, infer_param_type(name))
         end
 
         def visit_def(node)
@@ -59,6 +63,10 @@ module RLSL
         end
 
         def visit_multi_write(node)
+          if node.rest || !node.rights.empty?
+            raise UnsupportedSyntaxError, "Splat multiple assignment is not supported"
+          end
+
           targets = node.lefts.map do |target|
             name = target.name.to_sym
             declare_variable(name)

@@ -1,15 +1,16 @@
 # frozen_string_literal: true
 
-begin
-  require "metaco"
-  METACO_AVAILABLE = true
-rescue LoadError
-  METACO_AVAILABLE = false
-end
-
 module RLSL
   module MSL
+    begin
+      require "metaco"
+      METACO_AVAILABLE = true
+    rescue LoadError
+      METACO_AVAILABLE = false
+    end
+
     class Shader < RuntimeShader
+      COMPILED_HANDLE_CACHE_LIMIT = 64
       attr_reader :name, :msl_source
 
       def initialize(name, uniforms, msl_source)
@@ -35,6 +36,7 @@ module RLSL
         unless @compiled_handles[handle]
           Metaco.compile_compute_shader(handle, @msl_source)
           @compiled_handles[handle] = true
+          @compiled_handles.shift while @compiled_handles.length > COMPILED_HANDLE_CACHE_LIMIT
         end
 
         uniform_data = pack_uniforms(uniforms, width, height)

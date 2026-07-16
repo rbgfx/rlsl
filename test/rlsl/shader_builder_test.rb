@@ -66,7 +66,7 @@ class ShaderBuilderCoreTest < Test::Unit::TestCase
 
     artifact = compiler.send(:artifact_for, "void test(void) {}")
 
-    assert_match(/^test_shader_[0-9a-f]{8}$/, artifact.ext_name)
+    assert_match(/^test_shader_[0-9a-f]{16}$/, artifact.ext_name)
     assert_include artifact.file, "test_shader."
   end
 end

@@ -11,7 +11,7 @@ module RLSL
 
       def pack(width, height, uniforms)
         normalized_uniforms = UniformTypes.normalize_values(@uniform_types, uniforms, shader_name: @shader_name)
-        data = [width.to_f, height.to_f].pack("ff")
+        data = [width.to_f, height.to_f].pack("e2")
         current_offset = 8
 
         @uniform_names.each do |name|
@@ -20,6 +20,10 @@ module RLSL
           current_offset, data = append_padding(data, current_offset, spec.metal_alignment)
           data << pack_uniform_value(spec, value)
           current_offset += spec.metal_size
+        end
+
+        if data.bytesize > 256
+          raise ArgumentError, "Metal uniform buffer exceeds 256 bytes (#{data.bytesize} bytes)"
         end
 
         data.ljust(256, "\x00")
@@ -37,11 +41,11 @@ module RLSL
       def pack_uniform_value(spec, value)
         case spec.wrapper_kind
         when :float
-          [value.to_f].pack("f")
+          [value.to_f].pack("e")
         when :int
-          [value.to_i].pack("l")
+          [value.to_i].pack("l<")
         when :bool
-          [value ? 1 : 0].pack("l")
+          [value ? 1 : 0].pack("l<")
         when :vector
           pack_vector_uniform(spec.vector_size, value)
         else
@@ -54,11 +58,11 @@ module RLSL
 
         case vector_size
         when 2
-          components.pack("ff")
+          components.pack("e2")
         when 3
-          (components + [0.0]).pack("ffff")
+          (components + [0.0]).pack("e4")
         when 4
-          components.pack("ffff")
+          components.pack("e4")
         else
           raise ArgumentError, "Unsupported vector size: #{vector_size}"
         end

@@ -9,7 +9,7 @@ module RLSL
         uniforms: {},
         custom_functions: {},
         helpers_block: nil,
-        helpers_mode: :c,
+        helpers_mode: :ruby,
         fragment_block: nil,
         fragment_mode: :c
       )

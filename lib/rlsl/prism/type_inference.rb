@@ -14,7 +14,7 @@ require_relative "type_inference/control_flow_inferer"
 
 module RLSL
   module Prism
-    class SignatureError < StandardError; end
+    class SignatureError < RLSL::Error; end
 
     class TypeInference
       EXPRESSION_NODES = {
@@ -73,19 +73,21 @@ module RLSL
         )
         @definition_inferer = DefinitionInferer.new(
           infer: method(:infer),
+          lookup: method(:lookup),
           register: method(:register),
           collection_type_resolver: @collection_type_resolver
         )
         @control_flow_inferer = ControlFlowInferer.new(
           infer: method(:infer),
-          infer_child_scope: method(:infer_child_scope),
-          infer_in_scope: method(:infer_in_scope)
+          infer_in_scope: method(:infer_in_scope),
+          lookup: method(:lookup)
         )
         register_inferers
 
         uniforms.each do |name, type|
           register(name, type)
         end
+        register(:u, :uniforms)
 
         globals.each do |name, type|
           register(name, type)
@@ -100,8 +102,8 @@ module RLSL
         @types.register(name, type)
       end
 
-      def register_function(name, returns:)
-        @custom_functions[name.to_sym] = { returns: returns }
+      def register_function(name, returns:, params: {})
+        @custom_functions[name.to_sym] = { returns: returns, params: params }
       end
 
       def lookup(name)

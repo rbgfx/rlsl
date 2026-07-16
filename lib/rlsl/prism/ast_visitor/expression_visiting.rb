@@ -60,7 +60,9 @@ module RLSL
           receiver = normalize_expression(visit(node.receiver)) if node.receiver
           args = node.arguments&.arguments&.map { |arg| normalize_expression(visit(arg)) } || []
 
-          return IR::VarRef.new(method_name.to_sym, infer_param_type(method_name.to_sym)) if parameter_reference_call?(method_name, receiver, args)
+          if parameter_reference_call?(method_name, receiver, args)
+            return IR::VarRef.new(emitted_parameter_name(method_name), infer_param_type(method_name))
+          end
           return visit_receiver_call(method_name, receiver) if receiver_without_arguments?(node, receiver, args)
           return IR::BinaryOp.new(method_name, receiver, args.first) if binary_operator_call?(method_name, receiver, args)
           return IR::UnaryOp.new("-", receiver) if method_name == "-@" && receiver
@@ -144,7 +146,8 @@ module RLSL
         end
 
         def parameter_reference_call?(method_name, receiver, args)
-          !receiver && args.empty? && parameter_reference?(method_name.to_sym)
+          !receiver && args.empty? &&
+            (parameter_reference?(method_name.to_sym) || infer_param_type(method_name.to_sym))
         end
 
         def receiver_without_arguments?(node, receiver, args)

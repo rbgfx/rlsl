@@ -66,6 +66,7 @@ module RLSL
         def initialize
           @indent_level = 0
           @return_context_stack = [false]
+          @return_struct_name_stack = []
         end
 
         def emit(node, needs_return: false)
@@ -82,13 +83,15 @@ module RLSL
           type.to_s
         end
 
-        def format_number(value)
+        def format_number(value, type: nil)
+          return value.to_i.to_s if type == :int || value.is_a?(Integer)
+
           if value.is_a?(Float)
             formatted = value.to_s
             formatted += ".0" unless formatted.include?(".")
             formatted
           else
-            "#{value}.0"
+            value.to_s
           end
         end
 
@@ -96,17 +99,29 @@ module RLSL
           "  " * @indent_level
         end
 
-        def emit_with_precedence(node, parent_op)
+        def emit_with_precedence(node, parent_op, side: :left)
           code = emit(node)
           return code unless node.is_a?(IR::BinaryOp)
 
           node_prec = PRECEDENCE[node.operator] || 10
           parent_prec = PRECEDENCE[parent_op] || 10
-          node_prec < parent_prec ? "(#{code})" : code
+          needs_parentheses = node_prec < parent_prec || (side == :right && node_prec == parent_prec)
+          needs_parentheses ? "(#{code})" : code
         end
 
         def function_name(name)
           name.to_s
+        end
+
+        def function_qualifier
+          "static inline "
+        end
+
+        def with_return_struct_name(name)
+          @return_struct_name_stack << name
+          yield
+        ensure
+          @return_struct_name_stack.pop
         end
 
         def with_return_context(enabled)

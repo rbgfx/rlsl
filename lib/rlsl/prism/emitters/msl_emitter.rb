@@ -41,7 +41,19 @@ module RLSL
 
           texture = emit(node.args[0])
           uv = emit(node.args[1])
-          "#{texture}.sample(textureSampler, #{uv})"
+          if name == :textureLod
+            lod = emit(node.args[2])
+            return "#{texture}.sample(rlsl_texture_sampler, #{uv}, level(#{lod}))"
+          end
+
+          "#{texture}.sample(rlsl_texture_sampler, #{uv})"
+        end
+
+        def emit_field_access(node)
+          code = super
+          return "(#{code} != 0)" if node.receiver.type == :uniforms && node.type == :bool
+
+          code
         end
       end
     end

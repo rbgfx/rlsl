@@ -65,6 +65,10 @@ module RLSL
 
       def infer_swizzle(node)
         @infer.call(node.receiver)
+        unless Builtins.valid_swizzle_for_type?(node.components, node.receiver.type)
+          raise SignatureError, "Invalid swizzle #{node.components.inspect} for #{node.receiver.type || :unknown}"
+        end
+
         node.type = Builtins.swizzle_type(node.components)
         node
       end

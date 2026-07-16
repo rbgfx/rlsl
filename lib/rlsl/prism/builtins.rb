@@ -51,6 +51,10 @@ module RLSL
           SwizzleRules.swizzle_type(components)
         end
 
+        def valid_swizzle_for_type?(components, receiver_type)
+          SwizzleRules.valid_for_type?(components, receiver_type)
+        end
+
         def resolve_return_type(rule, arg_types)
           FunctionRegistry.resolve_return_type(rule, arg_types)
         end

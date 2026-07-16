@@ -8,7 +8,7 @@ module RLSL
       end
 
       def generate
-        return "typedef struct {} Uniforms;\n" if @context.uniform_entries.empty?
+        return "typedef struct { unsigned char _unused; } Uniforms;\n" if @context.uniform_entries.empty?
 
         <<~C
           typedef struct {

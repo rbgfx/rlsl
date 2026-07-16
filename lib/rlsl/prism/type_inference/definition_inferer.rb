@@ -3,8 +3,9 @@
 module RLSL
   module Prism
     class DefinitionInferer
-      def initialize(infer:, register:, collection_type_resolver:)
+      def initialize(infer:, lookup:, register:, collection_type_resolver:)
         @infer = infer
+        @lookup = lookup
         @register = register
         @collection_type_resolver = collection_type_resolver
       end
@@ -19,6 +20,14 @@ module RLSL
       def infer_assignment(node)
         @infer.call(node.target)
         @infer.call(node.value)
+        existing_type = node.target.is_a?(IR::VarRef) ? @lookup.call(node.target.name) : node.target.type
+        if existing_type && node.value.type && !compatible_assignment?(existing_type, node.value.type)
+          raise SignatureError,
+                "Cannot assign #{node.value.type} to #{node.target.name} (#{existing_type})"
+        end
+
+        node.target.type ||= node.value.type
+        @register.call(node.target.name, node.value.type) if node.target.is_a?(IR::VarRef) && !existing_type
         node.type = node.value.type
         node
       end
@@ -35,6 +44,12 @@ module RLSL
         @collection_type_resolver.assign_multiple_targets(node)
         node.type = nil
         node
+      end
+
+      private
+
+      def compatible_assignment?(target_type, value_type)
+        target_type == value_type || (target_type == :float && value_type == :int)
       end
     end
   end

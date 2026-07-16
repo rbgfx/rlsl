@@ -34,8 +34,8 @@ module RLSL
           resolved_binary_op = emit_profile_binary_op(node)
           return resolved_binary_op if resolved_binary_op
 
-          left = emit_with_precedence(node.left, node.operator)
-          right = emit_with_precedence(node.right, node.operator)
+          left = emit_with_precedence(node.left, node.operator, side: :left)
+          right = emit_with_precedence(node.right, node.operator, side: :right)
           "#{left} #{node.operator} #{right}"
         end
 

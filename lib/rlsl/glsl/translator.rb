@@ -15,7 +15,7 @@ module RLSL
 
       def initialize(uniforms, helpers_code, fragment_code, version: "450")
         super(uniforms, helpers_code, fragment_code)
-        @version = version
+        @version = validate_version!(version)
       end
 
       protected
@@ -33,8 +33,7 @@ module RLSL
           #{helpers}
 
           vec3 shader_fragment(vec2 frag_coord, vec2 resolution) {
-              vec2 uv = frag_coord / resolution.y;
-              #{fragment}
+          #{indent_source(fragment, 4)}
           }
 
           layout(local_size_x = 8, local_size_y = 8) in;
@@ -72,6 +71,13 @@ module RLSL
         )
         declarations << "} u;"
         declarations.join("\n")
+      end
+
+      def validate_version!(version)
+        normalized = version.to_s
+        return normalized if normalized.match?(/\A[1-9]\d{2}(?: (?:core|compatibility|es))?\z/)
+
+        raise ArgumentError, "Invalid GLSL version: #{version.inspect}"
       end
     end
   end

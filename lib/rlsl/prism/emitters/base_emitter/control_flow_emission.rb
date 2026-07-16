@@ -17,15 +17,18 @@ module RLSL
           def emit_conditional(node, needs_return:)
             condition = emit(node.condition)
             then_code = emit_branch(node.then_branch, needs_return: needs_return)
+            declarations = emit_hoisted_declarations(node)
 
-            return "#{indent}if (#{condition}) {\n#{then_code}#{indent}}#{needs_return ? "\n" : ""}" unless node.else_branch
+            unless node.else_branch
+              return "#{declarations}#{indent}if (#{condition}) {\n#{then_code}#{indent}}#{needs_return ? "\n" : ""}"
+            end
 
             if elsif_node?(node.else_branch)
               elsif_code = emit_elsif(node.else_branch, needs_return: needs_return)
-              "#{indent}if (#{condition}) {\n#{then_code}#{indent}} #{elsif_code}#{needs_return ? "\n" : ""}"
+              "#{declarations}#{indent}if (#{condition}) {\n#{then_code}#{indent}} #{elsif_code}#{needs_return ? "\n" : ""}"
             else
               else_code = emit_branch(node.else_branch, needs_return: needs_return)
-              "#{indent}if (#{condition}) {\n#{then_code}#{indent}} else {\n#{else_code}#{indent}}#{needs_return ? "\n" : ""}"
+              "#{declarations}#{indent}if (#{condition}) {\n#{then_code}#{indent}} else {\n#{else_code}#{indent}}#{needs_return ? "\n" : ""}"
             end
           end
 
@@ -62,7 +65,8 @@ module RLSL
             end_val = emit(node.range_end)
             body = emit_indented_block(node.body)
 
-            "for (int #{var} = #{start_val}; #{var} < #{end_val}; #{var}++) {\n#{body}#{indent}}"
+            comparison = node.exclude_end ? "<" : "<="
+            "for (int #{var} = #{start_val}; #{var} #{comparison} #{end_val}; #{var}++) {\n#{body}#{indent}}"
           end
 
           def emit_while_loop(node)
@@ -74,6 +78,12 @@ module RLSL
 
           def emit_break(_node)
             "break"
+          end
+
+          def emit_hoisted_declarations(node)
+            node.hoisted_variables.map do |name, type|
+              "#{indent}#{type_name(type || :float)} #{name};\n"
+            end.join
           end
 
         end

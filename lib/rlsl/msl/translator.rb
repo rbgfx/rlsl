@@ -24,6 +24,8 @@ module RLSL
           #include <metal_stdlib>
           using namespace metal;
 
+          constexpr sampler rlsl_texture_sampler(coord::normalized, address::clamp_to_edge, filter::linear);
+
           // Uniform buffer structure
           struct Uniforms {
               #{generate_uniform_struct}
@@ -34,8 +36,7 @@ module RLSL
 
           // Fragment shader function
           float3 shader_fragment(float2 frag_coord, float2 resolution, constant Uniforms& u) {
-              float2 uv = frag_coord / resolution.y;
-              #{fragment}
+          #{indent_source(fragment, 4)}
           }
 
           // Compute kernel entry point

@@ -27,6 +27,12 @@ module RLSL
 
           def emit_terminal_statement(node)
             return emit(node, needs_return: true) if node.is_a?(IR::IfStatement)
+            if node.is_a?(IR::VarDecl)
+              return "#{emit_statement(node)}#{indent}return #{node.name};\n"
+            end
+            if node.is_a?(IR::Assignment)
+              return "#{emit_statement(node)}#{indent}return #{emit(node.target)};\n"
+            end
             return emit_statement(node) if terminal_passthrough_node?(node)
             return emit_tuple_return(node) if node.is_a?(IR::ArrayLiteral)
 

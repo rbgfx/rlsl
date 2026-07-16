@@ -7,6 +7,14 @@ module RLSL
         module ExpressionEmission
           def emit_var_decl(node)
             type = type_name(node.type || :float)
+            return "#{type} #{node.name}" unless node.initializer
+
+            if node.initializer.is_a?(IR::ArrayLiteral)
+              value = emit(node.initializer)
+              element_type = type_name(node.initializer.elements.first&.type || :float)
+              return "#{element_type} #{node.name}[#{node.initializer.elements.length}] = #{value}"
+            end
+
             value = emit(node.initializer)
             "#{type} #{node.name} = #{value}"
           end
@@ -16,7 +24,7 @@ module RLSL
           end
 
           def emit_literal(node)
-            format_number(node.value)
+            format_number(node.value, type: node.type)
           end
 
           def emit_bool_literal(node)
@@ -24,13 +32,15 @@ module RLSL
           end
 
           def emit_binary_op(node)
-            left = emit_with_precedence(node.left, node.operator)
-            right = emit_with_precedence(node.right, node.operator)
+            left = emit_with_precedence(node.left, node.operator, side: :left)
+            right = emit_with_precedence(node.right, node.operator, side: :right)
             "#{left} #{node.operator} #{right}"
           end
 
           def emit_unary_op(node)
-            "#{node.operator}#{emit(node.operand)}"
+            operand = emit(node.operand)
+            operand = "(#{operand})" if node.operand.is_a?(IR::BinaryOp) || node.operand.is_a?(IR::Ternary)
+            "#{node.operator}#{operand}"
           end
 
           def emit_func_call(node)

@@ -6,7 +6,7 @@ module RLSL
       attr_reader :name
 
       def initialize(name:, uniforms:, helpers_block:, fragment_block:)
-        @name = name
+        @name = RLSL.validate_shader_name!(name)
         @uniforms = uniforms
         @helpers_block = helpers_block
         @fragment_block = fragment_block

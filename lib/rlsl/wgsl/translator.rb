@@ -27,7 +27,7 @@ module RLSL
 
           struct Uniforms {
               #{generate_uniform_struct}
-          };
+          }
 
           @group(0) @binding(0) var<uniform> u: Uniforms;
           @group(0) @binding(1) var output_texture: texture_storage_2d<rgba8unorm, write>;
@@ -35,8 +35,7 @@ module RLSL
           #{helpers}
 
           fn shader_fragment(frag_coord: vec2<f32>, resolution: vec2<f32>) -> vec3<f32> {
-              let uv = frag_coord / resolution.y;
-              #{fragment}
+          #{indent_source(fragment, 4)}
           }
 
           @compute @workgroup_size(8, 8)

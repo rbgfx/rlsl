@@ -12,9 +12,9 @@ module RLSL
           vec3: { args: %i[any any any], returns: :vec3, variadic: true, min_args: 1 },
           vec4: { args: %i[any any any any], returns: :vec4, variadic: true, min_args: 1 },
 
-          mat2: { args: %i[any any any any], returns: :mat2, variadic: true, min_args: 1 },
-          mat3: { args: %i[any any any any any any any any any], returns: :mat3, variadic: true, min_args: 1 },
-          mat4: { args: %i[any any any any any any any any any any any any any any any any], returns: :mat4, variadic: true, min_args: 1 },
+          mat2: { args: %i[any any any any], returns: :mat2, variadic: true, min_args: 1, targets: %i[glsl wgsl msl] },
+          mat3: { args: %i[any any any any any any any any any], returns: :mat3, variadic: true, min_args: 1, targets: %i[glsl wgsl msl] },
+          mat4: { args: %i[any any any any any any any any any any any any any any any any], returns: :mat4, variadic: true, min_args: 1, targets: %i[glsl wgsl msl] },
 
           sin: { args: [:float], returns: :float },
           cos: { args: [:float], returns: :float },
@@ -64,9 +64,9 @@ module RLSL
           transpose: { args: [:any], returns: :same, targets: %i[glsl wgsl msl] },
           determinant: { args: [:any], returns: :float, targets: %i[glsl wgsl msl] },
 
-          texture2D: { args: %i[sampler2D vec2], returns: :vec4 },
-          texture: { args: %i[sampler2D vec2], returns: :vec4 },
-          textureLod: { args: %i[sampler2D vec2 float], returns: :vec4 }
+          texture2D: { args: %i[sampler2D vec2], returns: :vec4, targets: %i[glsl wgsl msl] },
+          texture: { args: %i[sampler2D vec2], returns: :vec4, targets: %i[glsl wgsl msl] },
+          textureLod: { args: %i[sampler2D vec2 float], returns: :vec4, targets: %i[glsl wgsl msl] }
         }.freeze
 
         module_function

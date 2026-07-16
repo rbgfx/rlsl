@@ -11,7 +11,7 @@ require_relative "ast_visitor/definition_visiting"
 
 module RLSL
   module Prism
-    class UnsupportedSyntaxError < StandardError; end
+    class UnsupportedSyntaxError < RLSL::Error; end
 
     class ASTVisitor
       BINARY_OPERATORS = %w[+ - * / % == != < > <= >= && ||].freeze
@@ -34,7 +34,16 @@ module RLSL
       def initialize(context = {})
         @context = context
         @uniforms = context[:uniforms] || {}
-        @scope_context = ScopeContext.new(params: context[:params] || [])
+        params = context[:params] || []
+        @scope_context = ScopeContext.new(params: params)
+        positional_types = params.each_with_index.to_h do |name, index|
+          [name.to_sym, %i[vec2 vec2 uniforms][index]]
+        end
+        @parameter_types = { frag_coord: :vec2, resolution: :vec2, u: :uniforms }.merge(positional_types)
+        @parameter_bindings = { frag_coord: :frag_coord, resolution: :resolution, u: :u }
+        params.each_with_index do |name, index|
+          @parameter_bindings[name.to_sym] = %i[frag_coord resolution u][index]
+        end
       end
 
       def parse(source)
@@ -42,7 +51,7 @@ module RLSL
 
         unless result.success?
           errors = result.errors.map(&:message).join(", ")
-          raise "Parse error: #{errors}"
+          raise RLSL::ParseError, "Parse error: #{errors}"
         end
 
         program = result.value
@@ -89,18 +98,22 @@ module RLSL
       end
 
       def infer_param_type(name)
-        case name
-        when :frag_coord, :resolution
-          :vec2
-        when :u
-          :uniforms
-        else
-          nil
-        end
+        @parameter_types[name.to_sym]
+      end
+
+      def emitted_parameter_name(name)
+        @parameter_bindings[name.to_sym] || name.to_sym
       end
 
       def extract_required_params(node)
         return [] unless node
+
+        unsupported = node.child_nodes.compact.reject do |parameter|
+          parameter.is_a?(::Prism::RequiredParameterNode)
+        end
+        unless unsupported.empty?
+          raise UnsupportedSyntaxError, "Only required positional parameters are supported"
+        end
 
         node.requireds&.map { |param| param.name.to_sym } || []
       end

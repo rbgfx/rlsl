@@ -10,7 +10,7 @@ module RLSL
     attr_reader :name
 
     def initialize(name, definition = ShaderDefinition.new)
-      @name = name.to_s
+      @name = RLSL.validate_shader_name!(name)
       @definition = definition
     end
 
@@ -24,6 +24,10 @@ module RLSL
       end
     end
 
+    def uniform_types
+      @definition.uniforms
+    end
+
     def helpers(mode = :ruby, &block)
       @definition = @definition.with_helpers(mode: mode, block: block)
     end
@@ -34,11 +38,26 @@ module RLSL
       @definition = @definition.with_custom_functions(ctx.functions)
     end
 
-    def fragment(&block)
+    def fragment(mode = :auto, &block)
+      raise ArgumentError, "fragment requires a block" unless block
+
+      resolved_mode = if mode == :auto
+                        block.parameters.empty? ? :c : :ruby
+                      else
+                        mode.to_sym
+                      end
+      unless %i[c ruby].include?(resolved_mode)
+        raise ArgumentError, "fragment mode must be :c or :ruby"
+      end
+
       @definition = @definition.with_fragment(
-        mode: block.arity > 0 ? :ruby : :c,
+        mode: resolved_mode,
         block: block
       )
+    end
+
+    def fragment_source(source)
+      @definition = @definition.with_fragment(mode: :ruby_source, block: -> { source.to_s })
     end
 
     def compile_and_load

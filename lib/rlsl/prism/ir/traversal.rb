@@ -10,8 +10,12 @@ module RLSL
           return enum_for(:each, node) unless block_given?
           return if node.nil?
 
-          yield node
-          child_nodes(node).each { |child| each(child, &block) }
+          stack = [node]
+          until stack.empty?
+            current = stack.pop
+            yield current
+            stack.concat(child_nodes(current).reverse)
+          end
         end
 
         def child_nodes(node)

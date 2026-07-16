@@ -8,7 +8,7 @@ require_relative "source_extractor/block_locator"
 module RLSL
   module Prism
     class SourceExtractor
-      class SourceNotAvailable < StandardError; end
+      class SourceNotAvailable < RLSL::Error; end
 
       def initialize(block_locator = BlockLocator.new)
         @block_locator = block_locator
@@ -22,7 +22,7 @@ module RLSL
         file, line_num = block.source_location
         raise SourceNotAvailable, "Block source location not available" unless file && File.exist?(file)
 
-        @block_locator.extract_unit(File.read(file), line_num)
+        @block_locator.extract_unit(File.read(file), line_num, parameters: block.parameters)
       end
 
       def extract_from_string(source)

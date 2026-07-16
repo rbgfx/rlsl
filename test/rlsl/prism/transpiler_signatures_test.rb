@@ -27,7 +27,7 @@ class PrismTranspilerApplySignaturesTest < Test::Unit::TestCase
     assert_equal({ x: :float }, func_def.param_types)
   end
 
-  test "apply_function_signatures skips unknown functions" do
+  test "apply_function_signatures rejects functions without signatures" do
     transpiler = RLSL::Prism::Transpiler.new
 
     func_def = RLSL::Prism::IR::FunctionDefinition.new(
@@ -37,7 +37,9 @@ class PrismTranspilerApplySignaturesTest < Test::Unit::TestCase
     )
     block = RLSL::Prism::IR::Block.new([func_def])
 
-    transpiler.send(:apply_function_signatures, block, { other_func: { returns: :float } })
-    assert_nil func_def.return_type
+    error = assert_raise(RLSL::Prism::SignatureError) do
+      transpiler.send(:apply_function_signatures, block, { other_func: { returns: :float } })
+    end
+    assert_include error.message, "requires an explicit signature"
   end
 end

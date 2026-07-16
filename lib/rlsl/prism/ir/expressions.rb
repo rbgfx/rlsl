@@ -16,14 +16,16 @@ module RLSL
 
       class VarDecl < Node
         attr_reader :name, :initializer
+        attr_accessor :mutable
 
         visits :visit_var_decl
 
-        def initialize(name, initializer, type = nil)
+        def initialize(name, initializer, type = nil, mutable: false)
           super()
           @name = name
           @initializer = initializer
           @type = type
+          @mutable = mutable
         end
       end
 

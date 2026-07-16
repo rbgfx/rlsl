@@ -20,6 +20,8 @@ module RLSL
     def generate
       <<~C
         #include <ruby.h>
+        #include <ruby/thread.h>
+        #include <limits.h>
         #include <math.h>
         #include <stdint.h>
         #ifdef __APPLE__

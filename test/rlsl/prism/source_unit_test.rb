@@ -47,7 +47,7 @@ class PrismSourceUnitTest < Test::Unit::TestCase
   end
 
   test "from_source raises for invalid body" do
-    assert_raise(ArgumentError) do
+    assert_raise(RLSL::ParseError) do
       RLSL::Prism::SourceUnit.from_source("if")
     end
   end

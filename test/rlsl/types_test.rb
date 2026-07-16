@@ -34,7 +34,7 @@ class RLSLTypesTest < Test::Unit::TestCase
 
   test "UNIFORM_TYPE_SPECS maps WGSL bool type" do
     spec = RLSL::UniformTypes.fetch(:bool)
-    assert_equal "bool", spec.wgsl_type
+    assert_equal "i32", spec.wgsl_type
     assert_equal "int", spec.c_type
   end
 

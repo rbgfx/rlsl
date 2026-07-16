@@ -20,7 +20,7 @@ module RLSL
             for (int x = 0; x < width; x++) {
               vec2 frag_coord = vec2_new((float)x, (float)flipped_y);
               vec3 color = shader_#{@context.name}(frag_coord, resolution, uniforms);
-              int idx = (y * width + x) * 4;
+              size_t idx = ((size_t)y * (size_t)width + (size_t)x) * 4;
               // Output as BGRA (macOS native format)
               pixels[idx] = (uint8_t)(clamp_f(color.z, 0.0f, 1.0f) * 255.0f);
               pixels[idx+1] = (uint8_t)(clamp_f(color.y, 0.0f, 1.0f) * 255.0f);
@@ -29,9 +29,49 @@ module RLSL
             }
           }
 
+          typedef struct {
+            uint8_t *pixels;
+            int width;
+            int height;
+            vec2 resolution;
+            Uniforms uniforms;
+          } render_arguments;
+
+          static void *render_without_gvl(void *opaque) {
+            render_arguments *arguments = (render_arguments *)opaque;
+
+            #ifdef __APPLE__
+            dispatch_apply(arguments->height, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(size_t y) {
+              render_scanline(arguments->pixels, arguments->width, arguments->height, (int)y,
+                              arguments->resolution, arguments->uniforms);
+            });
+            #else
+            for (int y = 0; y < arguments->height; y++) {
+              render_scanline(arguments->pixels, arguments->width, arguments->height, y,
+                              arguments->resolution, arguments->uniforms);
+            }
+            #endif
+
+            return NULL;
+          }
+
           static VALUE shader_#{@context.name}_render(VALUE self, VALUE rb_buffer, VALUE rb_width, VALUE rb_height#{@context.uniform_argument_list}) {
-            int width = NUM2INT(rb_width);
-            int height = NUM2INT(rb_height);
+            long long requested_width = NUM2LL(rb_width);
+            long long requested_height = NUM2LL(rb_height);
+            if (requested_width <= 0 || requested_width > INT_MAX ||
+                requested_height <= 0 || requested_height > INT_MAX) {
+              rb_raise(rb_eArgError, "width and height must be positive integers no greater than INT_MAX");
+            }
+
+            size_t width_size = (size_t)requested_width;
+            size_t height_size = (size_t)requested_height;
+            if (height_size > SIZE_MAX / width_size || width_size * height_size > SIZE_MAX / 4) {
+              rb_raise(rb_eRangeError, "render dimensions overflow the output buffer size");
+            }
+
+            size_t required_bytes = width_size * height_size * 4;
+            int width = (int)requested_width;
+            int height = (int)requested_height;
             vec2 resolution = vec2_new((float)width, (float)height);
 
             Uniforms uniforms;
@@ -39,17 +79,14 @@ module RLSL
 
             Check_Type(rb_buffer, T_STRING);
             rb_str_modify(rb_buffer);
+            if ((size_t)RSTRING_LEN(rb_buffer) < required_bytes) {
+              rb_raise(rb_eArgError, "pixel buffer is too small: need %zu bytes, got %ld",
+                       required_bytes, RSTRING_LEN(rb_buffer));
+            }
             uint8_t *pixels = (uint8_t *)RSTRING_PTR(rb_buffer);
 
-            #ifdef __APPLE__
-            dispatch_apply(height, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(size_t y) {
-              render_scanline(pixels, width, height, (int)y, resolution, uniforms);
-            });
-            #else
-            for (int y = 0; y < height; y++) {
-              render_scanline(pixels, width, height, y, resolution, uniforms);
-            }
-            #endif
+            render_arguments arguments = {pixels, width, height, resolution, uniforms};
+            rb_thread_call_without_gvl(render_without_gvl, &arguments, RUBY_UBF_IO, NULL);
 
             return Qnil;
           }
@@ -87,6 +124,9 @@ module RLSL
 
         <<~C.strip
           Check_Type(rb_#{uniform_name}, T_ARRAY);
+          if (RARRAY_LEN(rb_#{uniform_name}) != #{vector_size}) {
+            rb_raise(rb_eArgError, "uniform #{uniform_name} must contain exactly #{vector_size} components");
+          }
           uniforms.#{uniform_name} = #{constructor}(
         #{components.join(",\n")}
           );

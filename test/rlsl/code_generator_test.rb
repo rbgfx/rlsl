@@ -167,7 +167,7 @@ class CodeGeneratorTest < Test::Unit::TestCase
   test "handles empty uniforms" do
     gen = RLSL::CodeGenerator.new(:test, {}, nil, -> { "" })
     code = gen.generate
-    assert code.include?("typedef struct {} Uniforms;")
+    assert code.include?("typedef struct { unsigned char _unused; } Uniforms;")
   end
 
   test "generates vec2 uniform in struct" do

@@ -38,6 +38,10 @@ module RLSL
 
       def fragment_source(target)
         return source_snippet("") unless @definition.fragment_block
+        if @definition.fragment_mode == :ruby_source
+          source = @definition.fragment_block.call
+          return source_snippet(fragment_transpiler.transpile_source(source, target), format: :target)
+        end
         return source_snippet(@definition.fragment_block.call) unless ruby_fragment?
 
         source_snippet(fragment_transpiler.transpile(@definition.fragment_block, target), format: :target)

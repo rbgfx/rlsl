@@ -40,14 +40,14 @@ module RLSL
         return if body_source.to_s.strip.empty?
 
         parsed = ::Prism.parse(body_source)
-        raise ArgumentError, "Unable to parse source unit body" unless parsed.success?
+        raise RLSL::ParseError, "Unable to parse source unit body" unless parsed.success?
       end
 
       def parse_params(params_source)
         return [] unless params_source
 
         parsed = ::Prism.parse("proc do #{params_source}\nend\n")
-        raise ArgumentError, "Unable to parse source unit params" unless parsed.success?
+        raise RLSL::ParseError, "Unable to parse source unit params" unless parsed.success?
 
         block = each_node(parsed.value).find { |node| node.is_a?(::Prism::BlockNode) }
         return [] unless block&.parameters

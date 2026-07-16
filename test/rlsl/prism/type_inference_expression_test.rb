@@ -11,7 +11,7 @@ class PrismTypeInferenceExpressionTest < Test::Unit::TestCase
   end
 
   test "register_function adds custom signatures used by infer_func_call" do
-    @type_inference.register_function(:helper_color, returns: :vec4)
+    @type_inference.register_function(:helper_color, returns: :vec4, params: { strength: :float })
 
     call = RLSL::Prism::IR::FuncCall.new(:helper_color, [literal(1.0)])
     infer(call)
@@ -30,7 +30,7 @@ class PrismTypeInferenceExpressionTest < Test::Unit::TestCase
     assert_equal :bool, inverted.type
   end
 
-  test "function calls resolve builtin, custom, and receiver fallback return types" do
+  test "function calls resolve builtin and custom return types and reject unknown functions" do
     builtin = RLSL::Prism::IR::FuncCall.new(:normalize, [var(:direction, :vec3)])
     custom = RLSL::Prism::IR::FuncCall.new(:helper_color, [], nil)
     receiver_fallback = RLSL::Prism::IR::FuncCall.new(:unknown_method, [], var(:surface, :vec4))
@@ -39,11 +39,11 @@ class PrismTypeInferenceExpressionTest < Test::Unit::TestCase
 
     infer(builtin)
     infer(custom)
-    infer(receiver_fallback)
+    error = assert_raise(RLSL::Prism::SignatureError) { infer(receiver_fallback) }
 
     assert_equal :vec3, builtin.type
     assert_equal :vec4, custom.type
-    assert_equal :vec4, receiver_fallback.type
+    assert_include error.message, "Unknown shader function"
   end
 
   test "builtin calls validate argument count" do
@@ -101,7 +101,7 @@ class PrismTypeInferenceExpressionTest < Test::Unit::TestCase
 
   test "field access and swizzles infer component and vector types" do
     component = RLSL::Prism::IR::FieldAccess.new(var(:color, :vec3), "x")
-    uniform_field = RLSL::Prism::IR::FieldAccess.new(var(:u), :texture_size)
+    uniform_field = RLSL::Prism::IR::FieldAccess.new(var(:u, :uniforms), :texture_size)
     swizzle = RLSL::Prism::IR::Swizzle.new(var(:position, :vec4), "xyz")
 
     infer(component)

@@ -2,7 +2,7 @@
 
 module PrismTypeInferenceHelpers
   DEFAULT_UNIFORMS = { texture_size: :vec2 }.freeze
-  DEFAULT_FUNCTIONS = { split_uv: { returns: [:float, :vec2] } }.freeze
+  DEFAULT_FUNCTIONS = { split_uv: { returns: [:float, :vec2], params: { uv: :vec2 } } }.freeze
 
   def build_type_inference(uniforms = DEFAULT_UNIFORMS, custom_functions = DEFAULT_FUNCTIONS)
     RLSL::Prism::TypeInference.new(

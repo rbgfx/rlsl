@@ -92,7 +92,7 @@ class BaseTranslatorTranslationTest < Test::Unit::TestCase
     assert_equal "test_vec3", @translator.send(:uniform_type_to_target, :vec3)
     assert_equal "test_vec4", @translator.send(:uniform_type_to_target, :vec4)
     assert_equal "i32", @translator.send(:uniform_type_to_target, :int)
-    assert_equal "bool", @translator.send(:uniform_type_to_target, :bool)
+    assert_equal "i32", @translator.send(:uniform_type_to_target, :bool)
   end
 
   test "target_float_type returns float" do
