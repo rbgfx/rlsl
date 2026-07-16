@@ -34,7 +34,7 @@ class ShaderBuilderHelpersModeTest < Test::Unit::TestCase
 
     definition = builder.instance_variable_get(:@definition)
     assert_not_nil definition.helpers_block
-    assert_equal :ruby, definition.helpers_mode
+    assert_equal :ruby_source, definition.helpers_mode
   end
 end
 
@@ -48,12 +48,12 @@ class ShaderBuilderFragmentModeTest < Test::Unit::TestCase
   test "fragment with args sets Ruby mode" do
     builder = RLSL::ShaderBuilder.new(:test)
     builder.fragment { |frag_coord| vec3(1.0, 0.0, 0.0) }
-    assert_equal :ruby, builder.instance_variable_get(:@definition).fragment_mode
+    assert_equal :ruby_source, builder.instance_variable_get(:@definition).fragment_mode
   end
 
   test "fragment with multiple args sets Ruby mode" do
     builder = RLSL::ShaderBuilder.new(:test)
     builder.fragment { |frag_coord, resolution, u| vec3(1.0, 0.0, 0.0) }
-    assert_equal :ruby, builder.instance_variable_get(:@definition).fragment_mode
+    assert_equal :ruby_source, builder.instance_variable_get(:@definition).fragment_mode
   end
 end

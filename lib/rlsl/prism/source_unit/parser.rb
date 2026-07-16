@@ -2,6 +2,9 @@
 
 require "prism"
 
+require_relative "../node_traversal"
+require_relative "../parameter_list"
+
 module RLSL
   module Prism
     class SourceUnitParser
@@ -33,7 +36,7 @@ module RLSL
       end
 
       def parameter_line?(line)
-        line&.start_with?("|") && line&.end_with?("|")
+        line&.start_with?("|") && line.end_with?("|")
       end
 
       def validate_body!(body_source)
@@ -49,29 +52,10 @@ module RLSL
         parsed = ::Prism.parse("proc do #{params_source}\nend\n")
         raise RLSL::ParseError, "Unable to parse source unit params" unless parsed.success?
 
-        block = each_node(parsed.value).find { |node| node.is_a?(::Prism::BlockNode) }
-        return [] unless block&.parameters
+        block = NodeTraversal.each(parsed.value).find { |node| node.is_a?(::Prism::BlockNode) }
+        return [] unless block
 
-        block.parameters.parameters.requireds.map(&:name)
-      end
-
-      def each_node(node)
-        return enum_for(:each_node, node) unless block_given?
-        return unless node
-
-        stack = [node]
-
-        until stack.empty?
-          current = stack.pop
-          yield current
-
-          children = if current.respond_to?(:compact_child_nodes)
-                       current.compact_child_nodes
-                     else
-                       Array(current.child_nodes).compact
-                     end
-          stack.concat(children.reverse)
-        end
+        ParameterList.required_names(block.parameters)
       end
     end
   end

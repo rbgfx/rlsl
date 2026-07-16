@@ -53,6 +53,13 @@ module RLSL
         )
       end
 
+      def compile_helpers_source(source, function_signatures = {})
+        compile_unit(
+          source_unit(source).without_params,
+          function_signatures: function_signatures
+        )
+      end
+
       def emit(target, compilation:, needs_return: true)
         emitter = resolve_emitter(target)
         validate_target_capabilities!(compilation.ir, target)
@@ -73,6 +80,14 @@ module RLSL
           target,
           needs_return: false,
           compilation: compile_helpers(block, function_signatures)
+        )
+      end
+
+      def transpile_helpers_source(source, target, function_signatures = {})
+        emit(
+          target,
+          needs_return: false,
+          compilation: compile_helpers_source(source, function_signatures)
         )
       end
 
@@ -108,7 +123,7 @@ module RLSL
 
       def resolve_emitter(target)
         emitter_class = TARGETS[target.to_sym]
-        raise "Unknown target: #{target}" unless emitter_class
+        raise RLSL::Error, "Unknown target: #{target}" unless emitter_class
 
         emitter_class.new
       end

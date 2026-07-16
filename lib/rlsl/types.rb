@@ -11,8 +11,4 @@ module RLSL
     extend TargetResolver
     extend ValueNormalizer
   end
-
-  module TypeMapping
-    C_UNIFORM_TYPES = UNIFORM_TYPE_SPECS.transform_values(&:c_type).freeze
-  end
 end

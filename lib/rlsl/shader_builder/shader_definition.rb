@@ -38,11 +38,11 @@ module RLSL
       end
 
       def ruby_fragment?
-        @fragment_mode == :ruby
+        %i[ruby ruby_source].include?(@fragment_mode)
       end
 
       def ruby_helpers?
-        @helpers_mode == :ruby
+        %i[ruby ruby_source].include?(@helpers_mode)
       end
 
       private

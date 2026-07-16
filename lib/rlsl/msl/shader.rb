@@ -17,7 +17,8 @@ module RLSL
         super(name, uniforms)
         @msl_source = msl_source
         @compiled_handles = {}
-        @uniform_buffer_packer = UniformBufferPacker.new(@name, @uniform_types, @uniform_names)
+        value_uniform_types = @uniform_types.reject { |_name, type| type == :sampler2D }
+        @uniform_buffer_packer = UniformBufferPacker.new(@name, value_uniform_types, value_uniform_types.keys)
       end
 
       def metal?

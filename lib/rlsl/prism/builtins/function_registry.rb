@@ -50,15 +50,15 @@ module RLSL
           reflect: { args: %i[any any], returns: :first },
           refract: { args: %i[any any float], returns: :first },
 
-          hash21: { args: [:vec2], returns: :float },
-          hash22: { args: [:vec2], returns: :vec2 },
+          hash21: { args: [:vec2], returns: :float, targets: [:c] },
+          hash22: { args: [:vec2], returns: :vec2, targets: [:c] },
 
-          lessThan: { args: %i[any any], returns: :bool },
-          lessThanEqual: { args: %i[any any], returns: :bool },
-          greaterThan: { args: %i[any any], returns: :bool },
-          greaterThanEqual: { args: %i[any any], returns: :bool },
-          equal: { args: %i[any any], returns: :bool },
-          notEqual: { args: %i[any any], returns: :bool },
+          lessThan: { args: %i[any any], returns: :bool, targets: [] },
+          lessThanEqual: { args: %i[any any], returns: :bool, targets: [] },
+          greaterThan: { args: %i[any any], returns: :bool, targets: [] },
+          greaterThanEqual: { args: %i[any any], returns: :bool, targets: [] },
+          equal: { args: %i[any any], returns: :bool, targets: [] },
+          notEqual: { args: %i[any any], returns: :bool, targets: [] },
 
           inverse: { args: [:any], returns: :same, targets: %i[glsl wgsl msl] },
           transpose: { args: [:any], returns: :same, targets: %i[glsl wgsl msl] },

@@ -7,11 +7,6 @@ class PrismSourceExtractorTest < Test::Unit::TestCase
     @extractor = RLSL::Prism::SourceExtractor.new
   end
 
-  test "extract_from_string returns source unchanged" do
-    source = "x = 1.0"
-    assert_equal source, @extractor.extract_from_string(source)
-  end
-
   test "raises error for block without source location" do
     block = proc { }
     block.define_singleton_method(:source_location) { [nil, nil] }

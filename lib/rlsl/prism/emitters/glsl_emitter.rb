@@ -52,6 +52,25 @@ module RLSL
           fields = types.each_with_index.map { |type, index| "#{type_name(type)} v#{index};" }.join(" ")
           "struct #{func_name}_result { #{fields} };\n"
         end
+
+        def emit_field_access(node)
+          return node.field.to_s if node.receiver.type == :uniforms && node.type == :sampler2D
+
+          super
+        end
+
+        def emit_texture_call(name, node)
+          return unless profile.texture_functions.key?(name) && node.args.length >= 2
+
+          args = [node.args[0], node.args[1], node.args[2] || IR::Literal.new(0.0, :float)]
+          emit_named_call("textureLod", args)
+        end
+
+        def emit_func_call(node)
+          return emit_named_call("atan", node.args) if node.name.to_sym == :atan2
+
+          super
+        end
       end
     end
   end

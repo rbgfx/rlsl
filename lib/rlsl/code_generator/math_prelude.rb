@@ -63,15 +63,25 @@ module RLSL
           static inline float vec3_dot(vec3 a, vec3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
           static inline float vec4_dot(vec4 a, vec4 b) { return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w; }
 
+          static inline vec3 vec3_cross(vec3 a, vec3 b) {
+            return vec3_new(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
+          }
+
           static inline float vec2_length(vec2 v) { return sqrtf(v.x * v.x + v.y * v.y); }
           static inline float vec3_length(vec3 v) { return sqrtf(v.x * v.x + v.y * v.y + v.z * v.z); }
           static inline float vec4_length(vec4 v) { return sqrtf(vec4_dot(v, v)); }
+
+          static inline float vec2_distance(vec2 a, vec2 b) { return vec2_length(vec2_sub(a, b)); }
+          static inline float vec3_distance(vec3 a, vec3 b) { return vec3_length(vec3_sub(a, b)); }
+          static inline float vec4_distance(vec4 a, vec4 b) { return vec4_length(vec4_sub(a, b)); }
 
           static inline vec2 vec2_normalize(vec2 v) { float l = vec2_length(v); return l > 0 ? vec2_div_scalar(v, l) : v; }
           static inline vec3 vec3_normalize(vec3 v) { float l = vec3_length(v); return l > 0 ? vec3_div_scalar(v, l) : v; }
           static inline vec4 vec4_normalize(vec4 v) { float l = vec4_length(v); return l > 0 ? vec4_div_scalar(v, l) : v; }
 
           static inline float fract(float x) { return x - floorf(x); }
+          static inline float sign_f(float x) { return (x > 0.0f) - (x < 0.0f); }
+          static inline float step_f(float edge, float x) { return x < edge ? 0.0f : 1.0f; }
           static inline float mix_f(float a, float b, float t) { return a + (b - a) * t; }
           static inline vec2 mix_v2(vec2 a, vec2 b, float t) {
             return (vec2){a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t};

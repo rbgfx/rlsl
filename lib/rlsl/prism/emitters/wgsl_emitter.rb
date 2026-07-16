@@ -63,7 +63,7 @@ module RLSL
           "for (var #{var}: i32 = #{start_val}; #{var} #{comparison} #{end_val}; #{var}++) {\n#{body}#{indent}}"
         end
 
-        def emit_ternary(node)
+        def emit_ternary(_node)
           raise TargetCapabilityError,
                 "WGSL conditional expressions cannot be emitted without eager branch evaluation"
         end
@@ -117,10 +117,22 @@ module RLSL
         end
 
         def emit_field_access(node)
+          return node.field.to_s if node.receiver.type == :uniforms && node.type == :sampler2D
+
           code = super
           return "(#{code} != 0)" if node.receiver.type == :uniforms && node.type == :bool
 
           code
+        end
+
+        def emit_texture_call(name, node)
+          return unless profile.texture_functions.key?(name) && node.args.length >= 2
+
+          texture = emit(node.args[0])
+          sampler = "#{texture}_sampler"
+          uv = emit(node.args[1])
+          lod = node.args[2] ? emit(node.args[2]) : "0.0"
+          "textureSampleLevel(#{texture}, #{sampler}, #{uv}, #{lod})"
         end
       end
     end

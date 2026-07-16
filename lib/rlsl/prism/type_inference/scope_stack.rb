@@ -12,7 +12,7 @@ module RLSL
       end
 
       def pop
-        raise "Cannot pop the global scope" if @scopes.length == 1
+        raise RLSL::InternalError, "Cannot pop the global scope" if @scopes.length == 1
 
         @scopes.pop
       end

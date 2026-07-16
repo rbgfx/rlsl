@@ -55,7 +55,7 @@ class RLSLTypesTest < Test::Unit::TestCase
 
   test "target capability is explicit" do
     assert_true RLSL::UniformTypes.fetch(:vec4).target_supported?(:wgsl)
-    assert_false RLSL::UniformTypes.fetch(:sampler2D).target_supported?(:msl)
+    assert_true RLSL::UniformTypes.fetch(:sampler2D).target_supported?(:msl)
   end
 
   test "C_TYPES contains mat2 definition" do
@@ -80,50 +80,6 @@ class RLSLTypesTest < Test::Unit::TestCase
 end
 
 class TypeMappingTest < Test::Unit::TestCase
-  test "C_UNIFORM_TYPES maps float" do
-    assert_equal "float", RLSL::TypeMapping::C_UNIFORM_TYPES[:float]
-  end
-
-  test "C_UNIFORM_TYPES maps vec2" do
-    assert_equal "vec2", RLSL::TypeMapping::C_UNIFORM_TYPES[:vec2]
-  end
-
-  test "C_UNIFORM_TYPES maps vec3" do
-    assert_equal "vec3", RLSL::TypeMapping::C_UNIFORM_TYPES[:vec3]
-  end
-
-  test "C_UNIFORM_TYPES maps vec4" do
-    assert_equal "vec4", RLSL::TypeMapping::C_UNIFORM_TYPES[:vec4]
-  end
-
-  test "C_UNIFORM_TYPES maps int" do
-    assert_equal "int", RLSL::TypeMapping::C_UNIFORM_TYPES[:int]
-  end
-
-  test "C_UNIFORM_TYPES maps bool" do
-    assert_equal "int", RLSL::TypeMapping::C_UNIFORM_TYPES[:bool]
-  end
-
-  test "C_UNIFORM_TYPES maps mat2" do
-    assert_equal "mat2", RLSL::TypeMapping::C_UNIFORM_TYPES[:mat2]
-  end
-
-  test "C_UNIFORM_TYPES maps mat3" do
-    assert_equal "mat3", RLSL::TypeMapping::C_UNIFORM_TYPES[:mat3]
-  end
-
-  test "C_UNIFORM_TYPES maps mat4" do
-    assert_equal "mat4", RLSL::TypeMapping::C_UNIFORM_TYPES[:mat4]
-  end
-
-  test "C_UNIFORM_TYPES maps sampler2D" do
-    assert_equal "sampler2D", RLSL::TypeMapping::C_UNIFORM_TYPES[:sampler2D]
-  end
-
-  test "C_UNIFORM_TYPES is frozen" do
-    assert RLSL::TypeMapping::C_UNIFORM_TYPES.frozen?
-  end
-
   test "compiled_spec rejects unsupported compiled uniform types" do
     assert_raise(ArgumentError) do
       RLSL::UniformTypes.compiled_spec(:mat4)

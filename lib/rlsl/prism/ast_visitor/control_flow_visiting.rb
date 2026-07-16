@@ -40,14 +40,6 @@ module RLSL
           visit(node.statements)
         end
 
-        def visit_elsif(node)
-          visit_if(node)
-        end
-
-        def visit_if_node(node)
-          visit_if(node)
-        end
-
         def visit_unless(node)
           condition = IR::UnaryOp.new("!", visit(node.predicate))
           hoisted_variables = hoist_branch_variables(node)

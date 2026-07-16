@@ -19,18 +19,23 @@ module RLSL
       end
 
       def build_metal_shader
-        translator = MSL::Translator.new(@definition.uniforms, *translation_sources(:msl))
+        translator = MSL::Translator.new(@definition.uniforms, *translation_sources(:msl), name: @name)
         msl_source = translator.translate
 
         MSL::Shader.new(@name, @definition.uniforms, msl_source)
       end
 
       def build_wgsl_shader
-        WGSL::Translator.new(@definition.uniforms, *translation_sources(:wgsl)).translate
+        WGSL::Translator.new(@definition.uniforms, *translation_sources(:wgsl), name: @name).translate
       end
 
       def build_glsl_shader(version: "450")
-        GLSL::Translator.new(@definition.uniforms, *translation_sources(:glsl), version: version).translate
+        GLSL::Translator.new(
+          @definition.uniforms,
+          *translation_sources(:glsl),
+          version: version,
+          name: @name
+        ).translate
       end
 
       def transpile_fragment(target)

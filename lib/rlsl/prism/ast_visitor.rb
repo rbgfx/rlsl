@@ -3,6 +3,9 @@
 require "prism"
 require "set"
 
+require_relative "node_traversal"
+require_relative "errors"
+require_relative "parameter_list"
 require_relative "ast_visitor/visitor_registry"
 require_relative "ast_visitor/scope_context"
 require_relative "ast_visitor/expression_visiting"
@@ -11,9 +14,8 @@ require_relative "ast_visitor/definition_visiting"
 
 module RLSL
   module Prism
-    class UnsupportedSyntaxError < RLSL::Error; end
-
     class ASTVisitor
+      MAX_AST_DEPTH = 512
       BINARY_OPERATORS = %w[+ - * / % == != < > <= >= && ||].freeze
       UNARY_OPERATORS = %w[- !].freeze
       TRANSPARENT_NODES = VisitorRegistry::TRANSPARENT_NODES
@@ -55,6 +57,10 @@ module RLSL
         end
 
         program = result.value
+        if NodeTraversal.depth_exceeds?(program, MAX_AST_DEPTH)
+          raise UnsupportedSyntaxError, "Shader syntax nesting exceeds #{MAX_AST_DEPTH} nodes"
+        end
+
         visit(program)
       end
 
@@ -106,16 +112,7 @@ module RLSL
       end
 
       def extract_required_params(node)
-        return [] unless node
-
-        unsupported = node.child_nodes.compact.reject do |parameter|
-          parameter.is_a?(::Prism::RequiredParameterNode)
-        end
-        unless unsupported.empty?
-          raise UnsupportedSyntaxError, "Only required positional parameters are supported"
-        end
-
-        node.requireds&.map { |param| param.name.to_sym } || []
+        ParameterList.required_names(node).map(&:to_sym)
       end
 
       def extract_block_params(node)

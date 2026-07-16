@@ -8,7 +8,6 @@ Makefile
 mkmf.log
 
 # Ruby
-*.gem
 *.rbc
 /.config
 /coverage/

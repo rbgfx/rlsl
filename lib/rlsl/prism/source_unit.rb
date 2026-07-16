@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "source_unit/parser"
+require_relative "parameter_list"
 
 module RLSL
   module Prism
@@ -20,10 +21,7 @@ module RLSL
         private
 
         def extract_params(block)
-          return [] unless block.parameters
-
-          parameters = block.parameters.parameters
-          parameters.requireds.map(&:name)
+          ParameterList.required_names(block.parameters)
         end
       end
 

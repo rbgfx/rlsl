@@ -94,12 +94,6 @@ module RLSL
           IR::ArrayLiteral.new(elements)
         end
 
-        def visit_index(node)
-          array = normalize_expression(visit(node.receiver))
-          index = normalize_expression(visit(node.arguments.arguments.first))
-          IR::ArrayIndex.new(array, index)
-        end
-
         def visit_constant_read(node)
           name = node.name.to_s
           return IR::Constant.new(name.to_sym, :float) if %w[PI TAU].include?(name)
@@ -128,7 +122,9 @@ module RLSL
 
           then_expr = extract_if_branch_expr(node.then_branch)
           else_expr = extract_if_branch_expr(node.else_branch)
-          raise "Unsupported if-expression: branches must be single expressions" unless then_expr && else_expr
+          unless then_expr && else_expr
+            raise UnsupportedSyntaxError, "Unsupported if-expression: branches must be single expressions"
+          end
 
           IR::Ternary.new(node.condition, then_expr, else_expr)
         end

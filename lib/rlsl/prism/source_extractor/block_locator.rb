@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require_relative "../node_traversal"
+require_relative "../parameter_list"
+
 module RLSL
   module Prism
     class SourceExtractor
@@ -21,7 +24,7 @@ module RLSL
         private
 
         def block_at_line(node, start_line, parameters)
-          candidates = each_node(node).select do |current|
+          candidates = NodeTraversal.each(node).select do |current|
             current.is_a?(::Prism::BlockNode) && current.location.start_line == start_line
           end
           candidates.select! { |candidate| parameter_names(candidate) == required_parameter_names(parameters) } if parameters
@@ -35,31 +38,11 @@ module RLSL
         end
 
         def parameter_names(block)
-          return [] unless block.parameters
-
-          block.parameters.parameters.requireds.map(&:name)
+          ParameterList.names(block.parameters)
         end
 
         def required_parameter_names(parameters)
-          Array(parameters).filter_map { |kind, name| name if kind == :opt || kind == :req }
-        end
-        def each_node(node)
-          return enum_for(:each_node, node) unless block_given?
-          return unless node
-
-          stack = [node]
-
-          until stack.empty?
-            current = stack.pop
-            yield current
-
-            children = if current.respond_to?(:compact_child_nodes)
-                         current.compact_child_nodes
-                       else
-                         Array(current.child_nodes).compact
-                       end
-            stack.concat(children.reverse)
-          end
+          Array(parameters).filter_map { |_kind, name| name }
         end
       end
     end

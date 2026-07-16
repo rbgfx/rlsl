@@ -73,7 +73,7 @@ module RLSL
           with_return_context(needs_return) do
             return node.accept(self) if node.respond_to?(:accept)
 
-            raise "Unknown IR node: #{node.class}"
+            raise RLSL::InternalError, "Unknown IR node: #{node.class}"
           end
         end
 

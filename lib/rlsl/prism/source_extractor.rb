@@ -24,10 +24,6 @@ module RLSL
 
         @block_locator.extract_unit(File.read(file), line_num, parameters: block.parameters)
       end
-
-      def extract_from_string(source)
-        source
-      end
     end
   end
 end

@@ -156,7 +156,7 @@ module RLSL
       c_type: "sampler2D",
       glsl_type: "sampler2D",
       wgsl_type: "texture_2d<f32>",
-      msl_type: nil,
+      msl_type: "texture2d<float>",
       compiled_supported: false,
       runtime_supported: false,
       function_shorthand: true

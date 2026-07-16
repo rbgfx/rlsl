@@ -171,6 +171,30 @@ class IssueRegressionsTest < Test::Unit::TestCase
     assert_include shader, "constexpr sampler rlsl_texture_sampler"
   end
 
+  test "texture uniforms become target resources rather than buffer fields" do
+    outputs = %i[glsl wgsl msl].to_h do |target|
+      builder = RLSL::ShaderBuilder.new(:texture_resources)
+      builder.uniforms { sampler2D :albedo }
+      builder.fragment_source(
+        "|fc, size, uniforms|\ntexture2D(uniforms.albedo, fc / size).xyz"
+      )
+      output = case target
+               when :glsl then builder.build_glsl_shader
+               when :wgsl then builder.build_wgsl_shader
+               when :msl then builder.build_metal_shader.msl_source
+               end
+      [target, output]
+    end
+
+    assert_include outputs[:glsl], "uniform sampler2D albedo"
+    assert_include outputs[:glsl], "textureLod(albedo, frag_coord / resolution, 0.0)"
+    assert_include outputs[:wgsl], "var albedo: texture_2d<f32>"
+    assert_include outputs[:wgsl], "var albedo_sampler: sampler"
+    assert_include outputs[:wgsl], "textureSampleLevel(albedo, albedo_sampler"
+    assert_include outputs[:msl], "texture2d<float, access::sample> albedo [[texture(1)]]"
+    assert_not_include outputs[:msl], "texture2d<float> albedo;"
+  end
+
   test "C vector operations and constructors map to available functions" do
     source = <<~RUBY
       a = vec2(1.0, 2.0)
@@ -220,9 +244,17 @@ class IssueRegressionsTest < Test::Unit::TestCase
 
   test "native extension rejects short buffers without writing" do
     Dir.mktmpdir("rlsl-native-test") do |cache_dir|
-      code = RLSL::CodeGenerator.new(:buffer_shader, {}, nil, -> {
-        "return vec3_new(1.0f, 0.0f, 0.0f);"
-      }).generate
+      fragment = @transpiler.transpile_source(<<~RUBY, :c)
+        a = vec2(1.0, 2.0)
+        b = vec2(3.0, 4.0)
+        product = (a * 2.0) * (2.0 * b)
+        blended = mix(a, b, 0.5)
+        separation = distance(a, b)
+        normal = cross(vec3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0))
+        angle = atan(1.0, 1.0)
+        vec3(product.x + blended.y + separation, normal.z, angle)
+      RUBY
+      code = RLSL::CodeGenerator.new(:buffer_shader, {}, nil, -> { fragment }).generate
       artifact = RLSL::ShaderBuilder::NativeExtensionCompiler.new(
         :buffer_shader,
         cache_dir: cache_dir
@@ -261,6 +293,22 @@ class IssueRegressionsTest < Test::Unit::TestCase
     assert_not_include code, "fc / size"
   end
 
+  test "Ruby block source is captured when it is declared" do
+    Dir.mktmpdir("rlsl-source-capture") do |directory|
+      path = File.join(directory, "shader.rb")
+      File.write(path, "proc { |coordinate| vec3(1.0, coordinate.x, 0.0) }\n")
+      shader_block = eval(File.read(path), binding, path) # rubocop:disable Security/Eval
+      builder = RLSL::ShaderBuilder.new(:captured_source)
+      builder.fragment(&shader_block)
+
+      File.write(path, "proc { |coordinate| vec3(0.0, coordinate.x, 0.0) }\n")
+
+      code = builder.transpile_fragment(:glsl)
+      assert_include code, "vec3(1.0, frag_coord.x, 0.0)"
+      assert_not_include code, "vec3(0.0, frag_coord.x, 0.0)"
+    end
+  end
+
   test "no argument Ruby fragments have an explicit mode" do
     builder = RLSL::ShaderBuilder.new(:no_args)
     builder.fragment(:ruby) { vec3(1.0, 0.0, 0.0) }
@@ -295,6 +343,12 @@ class IssueRegressionsTest < Test::Unit::TestCase
     assert_raise(RLSL::Prism::UnsupportedSyntaxError) do
       @transpiler.compile_source("return 1.0, 2.0")
     end
+    assert_raise(RLSL::Prism::UnsupportedSyntaxError) do
+      @transpiler.compile_source("|value = 1.0|\nvec3(value)")
+    end
+    assert_raise(RLSL::Prism::UnsupportedSyntaxError) do
+      RLSL::ShaderBuilder.new(:rest_parameter).fragment { |*values| vec3(values[0]) }
+    end
   end
 
   test "quoted parsing counts consecutive backslashes" do
@@ -309,6 +363,15 @@ class IssueRegressionsTest < Test::Unit::TestCase
     10_000.times { root = RLSL::Prism::IR::Parenthesized.new(root) }
 
     assert_equal 10_001, RLSL::Prism::IR::Traversal.each(root).count
+  end
+
+  test "AST visitor rejects excessive nesting before exhausting the Ruby stack" do
+    source = Array.new(RLSL::Prism::ASTVisitor::MAX_AST_DEPTH + 1, "1.0").join(" + ")
+
+    error = assert_raise(RLSL::Prism::UnsupportedSyntaxError) do
+      @transpiler.compile_source(source)
+    end
+    assert_include error.message, "nesting exceeds"
   end
 
   test "to_msl mirrors source-returning target APIs" do

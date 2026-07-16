@@ -29,7 +29,21 @@ module RLSL
     end
 
     def helpers(mode = :ruby, &block)
-      @definition = @definition.with_helpers(mode: mode, block: block)
+      raise ArgumentError, "helpers requires a block" unless block
+
+      resolved_mode = mode.to_sym
+      raise ArgumentError, "helpers mode must be :c or :ruby" unless %i[c ruby].include?(resolved_mode)
+
+      if resolved_mode == :ruby
+        source = Prism::SourceExtractor.new.extract(block)
+        @definition = @definition.with_helpers(mode: :ruby_source, block: -> { source })
+      else
+        @definition = @definition.with_helpers(mode: :c, block: block)
+      end
+    end
+
+    def helpers_source(source)
+      @definition = @definition.with_helpers(mode: :ruby_source, block: -> { source.to_s })
     end
 
     def functions(&block)
@@ -50,10 +64,12 @@ module RLSL
         raise ArgumentError, "fragment mode must be :c or :ruby"
       end
 
-      @definition = @definition.with_fragment(
-        mode: resolved_mode,
-        block: block
-      )
+      if resolved_mode == :ruby
+        source = Prism::SourceExtractor.new.extract(block)
+        @definition = @definition.with_fragment(mode: :ruby_source, block: -> { source })
+      else
+        @definition = @definition.with_fragment(mode: :c, block: block)
+      end
     end
 
     def fragment_source(source)

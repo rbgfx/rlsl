@@ -28,6 +28,13 @@ module RLSL
 
       def helpers_source(target)
         return source_snippet("") unless @definition.helpers_block
+        if @definition.helpers_mode == :ruby_source
+          source = @definition.helpers_block.call
+          return source_snippet(
+            helpers_transpiler.transpile_helpers_source(source, target, @definition.custom_functions),
+            format: :target
+          )
+        end
         return source_snippet(@definition.helpers_block.call) unless ruby_helpers?
 
         source_snippet(
@@ -67,7 +74,14 @@ module RLSL
         return {} unless ruby_helpers? && @definition.helpers_block
 
         @helper_globals ||= begin
-          compilation = helpers_transpiler.compile_helpers(@definition.helpers_block, @definition.custom_functions)
+          compilation = if @definition.helpers_mode == :ruby_source
+                          helpers_transpiler.compile_helpers_source(
+                            @definition.helpers_block.call,
+                            @definition.custom_functions
+                          )
+                        else
+                          helpers_transpiler.compile_helpers(@definition.helpers_block, @definition.custom_functions)
+                        end
           extract_global_types(compilation.ir)
         end
       end

@@ -50,6 +50,8 @@ module RLSL
         end
 
         def emit_field_access(node)
+          return node.field.to_s if node.receiver.type == :uniforms && node.type == :sampler2D
+
           code = super
           return "(#{code} != 0)" if node.receiver.type == :uniforms && node.type == :bool
 

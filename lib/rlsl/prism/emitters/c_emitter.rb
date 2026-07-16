@@ -47,6 +47,8 @@ module RLSL
             abs: "fabsf",
             floor: "floorf",
             ceil: "ceilf",
+            sign: "sign_f",
+            step: "step_f",
             min: "fminf",
             max: "fmaxf",
             fract: "fract",
@@ -81,6 +83,9 @@ module RLSL
           name = node.name.to_sym
           return emit_c_vector_constructor(node) if vector_type?(name)
           return emit_named_call("atan2f", node.args) if name == :atan && node.args.length == 2
+          if %i[distance cross].include?(name) && vector_type?(node.args.first&.type)
+            return emit_named_call("#{node.args.first.type}_#{name}", node.args)
+          end
           return emit_named_call("#{node.args.first.type}_#{name}", node.args) if vector_math_call?(name, node)
           return emit_named_call("mix_#{vector_suffix(node.args.first.type)}", node.args) if vector_mix_call?(name, node)
         end

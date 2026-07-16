@@ -10,11 +10,14 @@ module RLSL
           target_vec2: "vec2",
           target_vec3: "vec3",
           target_vec4: "vec4"
+        ).merge(
+          "fmodf" => BaseTranslator.rename_call("mod"),
+          "atan2f" => BaseTranslator.rename_call("atan")
         )
       )
 
-      def initialize(uniforms, helpers_code, fragment_code, version: "450")
-        super(uniforms, helpers_code, fragment_code)
+      def initialize(uniforms, helpers_code, fragment_code, version: "450", name: nil)
+        super(uniforms, helpers_code, fragment_code, name: name)
         @version = validate_version!(version)
       end
 
@@ -23,6 +26,7 @@ module RLSL
       def generate_shader(helpers, fragment)
         <<~GLSL
           #version #{@version}
+          #{generated_by_comment("GLSL")}
 
           // Uniforms
           #{generate_uniform_declarations}
@@ -70,6 +74,9 @@ module RLSL
           end
         )
         declarations << "} u;"
+        texture_uniforms.each_with_index do |(name, _type), index|
+          declarations << "layout(binding = #{index + 2}) uniform sampler2D #{name};"
+        end
         declarations.join("\n")
       end
 

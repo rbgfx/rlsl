@@ -121,7 +121,7 @@ class PrismTranspilerTest < Test::Unit::TestCase
 
   test "emit raises error for unknown target" do
     compilation = @transpiler.compile_source("x = 1.0\nreturn x")
-    assert_raise(RuntimeError) do
+    assert_raise(RLSL::Error) do
       @transpiler.emit(:unknown_target, compilation: compilation)
     end
   end
@@ -187,14 +187,12 @@ class PrismTranspilerTest < Test::Unit::TestCase
     assert_include error.message, "Builtin mat2 is not supported on C"
   end
 
-  test "emit raises for target-unsupported uniform types used by builtins" do
+  test "emit supports MSL texture uniforms as resources" do
     transpiler = RLSL::Prism::Transpiler.new({ texture: :sampler2D })
 
-    error = assert_raise(RLSL::Prism::TargetCapabilityError) do
-      transpiler.transpile_source("color = texture2D(u.texture, vec2(0.0, 0.0))\nreturn color", :msl)
-    end
+    code = transpiler.transpile_source("color = texture2D(u.texture, vec2(0.0, 0.0))\nreturn color", :msl)
 
-    assert_include error.message, "sampler2D"
+    assert_include code, "texture.sample(rlsl_texture_sampler"
   end
 
   test "emit with needs_return false" do
