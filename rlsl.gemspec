@@ -27,5 +27,5 @@ Gem::Specification.new do |spec|
   end
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "prism"
+  spec.add_dependency "prism", ">= 1.0.0"
 end

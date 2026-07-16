@@ -82,7 +82,7 @@ end
 ### Generate MSL (Metal)
 
 ```ruby
-metal_shader = RLSL.define_metal(:my_shader) do
+msl_code = RLSL.to_msl(:my_shader) do
   uniforms do
     float :time
   end
@@ -93,6 +93,8 @@ metal_shader = RLSL.define_metal(:my_shader) do
 end
 ```
 
+`RLSL.to_glsl`, `RLSL.to_wgsl`, and `RLSL.to_msl` return source strings. `RLSL.define` compiles the C target for CPU rendering, while `RLSL.define_metal` returns an `RLSL::MSL::Shader` for optional Metal execution.
+
 ### Using Helper Functions
 
 ```ruby
@@ -102,8 +104,8 @@ RLSL.to_glsl(:complex_shader) do
   end
 
   functions do
-    float :noise
-    vec3 :get_color
+    define :noise, returns: :float, params: { p: :vec2 }
+    define :get_color, returns: :vec3, params: { uv: :vec2, t: :float }
   end
 
   helpers(:ruby) do
@@ -123,6 +125,39 @@ RLSL.to_glsl(:complex_shader) do
 end
 ```
 
+Every Ruby helper function needs a complete declaration in `functions`; parameter names and order must match the Ruby method definition. This prevents unknown parameters from silently becoming floats.
+
+### Fragment Parameters and Explicit Source
+
+Fragment parameters are positional. The first parameter is the fragment coordinate (`vec2`), the second is the resolution (`vec2`), and the third is the uniform object. Their Ruby names may be changed; generated target code uses the canonical names `frag_coord`, `resolution`, and `u`.
+
+Ruby-mode blocks are captured from their source file when `fragment` or `helpers` is declared. They must come from a readable file, and multiple shader blocks must not start on the same source line. Code created by `eval`, `ruby -e`, or some REPLs has no readable source file. Once declared, later edits to the file do not change the captured shader source.
+
+For generated code and REPL use, provide the Ruby source explicitly with `fragment_source` or `helpers_source`:
+
+```ruby
+builder = RLSL::ShaderBuilder.new(:generated_shader)
+builder.fragment_source <<~RUBY
+  |coordinate, size, uniforms|
+  uv = coordinate / size
+  vec3(uv.x, uv.y, uniforms.time)
+RUBY
+```
+
+A block with parameters is automatically treated as Ruby shader code. A no-argument block defaults to legacy C-source mode; use `fragment(:ruby) { vec3(1.0, 0.0, 0.0) }` to select Ruby mode explicitly. Raw helper or fragment source can be selected with `helpers(:c)` and `fragment(:c)`.
+
+Use `builder.uniform_types` to inspect declared uniform types. The block form of `uniforms` remains the declaration API.
+
+### Texture Resources
+
+`sampler2D` uniforms are source-generation resources for GLSL, WGSL, and MSL. Use `texture`, `texture2D`, or `textureLod` in Ruby shader code. They are not fields in the uniform buffer:
+
+- GLSL reserves binding 0 for output and binding 1 for the uniform block; textures begin at binding 2.
+- WGSL uses group 0 bindings 0 and 1 for the uniform buffer and output. Each texture/sampler pair then uses bindings 2/3, 4/5, and so on.
+- MSL uses texture 0 for output, texture 1 onward for sampled textures, and buffer 0 for uniforms. The generated shader uses an internal linear sampler.
+
+The C renderer and the current `metaco` runtime path do not bind `sampler2D` resources; attempts to use texture functions on C are rejected with a target-capability error. Texture-enabled source can still be emitted with `to_glsl`, `to_wgsl`, or `to_msl` and bound by the host application.
+
 ## Supported Types
 
 - `bool` - Boolean (conditional logic)
@@ -135,6 +170,8 @@ end
 - `mat3` - 3x3 matrix (normal transformations)
 - `mat2` - 2x2 matrix (2D texture coordinate transformations)
 - `sampler2D` - 2D texture sampler
+
+Scalar and vector uniforms (`bool`, `int`, `float`, and `vec2` through `vec4`) are supported by the CPU and Metal runtime packers. Matrix and sampler uniforms are source-generation only.
 
 ## Built-in Functions
 
@@ -153,7 +190,10 @@ RLSL supports common shader functions:
 ## Requirements
 
 - Ruby >= 3.1.0
-- [Prism](https://github.com/ruby/prism) gem (for Ruby parsing)
+- [Prism](https://github.com/ruby/prism) >= 1.0.0 (for Ruby parsing)
+- A working Ruby C-extension toolchain for `RLSL.define` (`make` is selected from Ruby's `RbConfig`)
+
+The test matrix covers supported Ruby releases on Ubuntu, macOS, and Windows. Metal runtime execution is macOS-only. GLSL, WGSL, and MSL source generation is platform-independent.
 
 ### Optional: Metal Shader Execution (macOS only)
 
@@ -169,18 +209,18 @@ Or add to your Gemfile:
 gem "metaco", platforms: :ruby, install_if: -> { RUBY_PLATFORM.include?("darwin") }
 ```
 
-MSL code generation (`RLSL.define_metal`) works without metaco. The gem is only required when calling `render_metal` at runtime.
+MSL code generation (`RLSL.to_msl` or `RLSL.define_metal`) works without metaco. The gem is only required when calling `render_metal` at runtime.
 
 ## Development
 
-After checking out the repo, run `bundle install` to install dependencies. Then, run `rake test` to run the tests.
+After checking out the repo, run `bundle install` to install dependencies. Then run `rake verify` for lint and tests.
 
 ```bash
 $ bundle install
-$ rake test
+$ rake verify
 ```
 
-For a quick local coverage summary, run `COVERAGE=1 rake test`. It prints the overall `lib/` coverage and the lowest-covered files without requiring extra gems.
+For a quick local coverage summary, run `COVERAGE=1 rake test`. Set `COVERAGE_MIN=85` to enforce a minimum percentage. Target compiler integration tests use `glslangValidator`, Naga's `naga` CLI, and `xcrun metal` when those tools are installed; CI requires the GLSL and WGSL validators.
 
 ## License
 

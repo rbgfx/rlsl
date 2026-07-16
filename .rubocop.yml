@@ -1,0 +1,8 @@
+AllCops:
+  NewCops: disable
+
+# These class-level profile factories intentionally remain public even though
+# their source location follows the protected instance API.
+Lint/IneffectiveAccessModifier:
+  Exclude:
+    - lib/rlsl/base_translator.rb

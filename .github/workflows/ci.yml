@@ -15,13 +15,16 @@ jobs:
         os:
           - ubuntu-latest
           - macos-latest
+          - windows-latest
         ruby:
           - "3.1"
           - "3.2"
           - "3.3"
           - "3.4"
           - "4.0"
-          - "head"
+        include:
+          - os: ubuntu-latest
+            ruby: head
     steps:
       - uses: actions/checkout@v4
       - name: Set up Ruby
@@ -31,3 +34,44 @@ jobs:
           bundler-cache: true
       - name: Run tests
         run: bundle exec rake test
+
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "4.0"
+          bundler-cache: true
+      - name: Run lint checks
+        run: bundle exec rake lint
+      - name: Enforce coverage floor
+        run: COVERAGE=1 COVERAGE_MIN=85 bundle exec rake test
+
+  shader-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "4.0"
+          bundler-cache: true
+      - name: Install GLSL validator
+        run: sudo apt-get update && sudo apt-get install -y glslang-tools
+      - name: Install WGSL validator
+        run: cargo install --git https://github.com/gfx-rs/wgpu --tag v29.0.3 naga-cli --locked
+      - name: Compile generated shaders
+        run: REQUIRE_GLSL_COMPILER=1 REQUIRE_WGSL_COMPILER=1 bundle exec ruby -Itest test/rlsl/target_compilation_test.rb
+
+  metal-validation:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "4.0"
+          bundler-cache: true
+      - name: Install Metal toolchain
+        run: xcodebuild -downloadComponent metalToolchain
+      - name: Compile generated MSL
+        run: REQUIRE_MSL_COMPILER=1 bundle exec ruby -Itest test/rlsl/target_compilation_test.rb

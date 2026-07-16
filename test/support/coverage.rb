@@ -49,4 +49,7 @@ at_exit do
   file_summaries.sort_by { |file| file[:coverage] }.first(5).each do |file|
     puts format("  %6.2f%% %s", file[:coverage], file[:path])
   end
+
+  minimum = ENV.fetch("COVERAGE_MIN", "0").to_f
+  abort format("Coverage %.2f%% is below required %.2f%%", total, minimum) if total < minimum
 end
