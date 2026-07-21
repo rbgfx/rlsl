@@ -59,10 +59,14 @@ jobs:
           ruby-version: "3.1"
       - name: Install dependencies with minimum Prism
         run: bundle install
-      - name: Verify resolved Prism version
-        run: bundle exec ruby -rprism -e 'abort "expected Prism #{ENV.fetch("PRISM_VERSION")}" unless Prism::VERSION == ENV.fetch("PRISM_VERSION")'
-      - name: Run tests
-        run: bundle exec ruby -Itest -Ilib -e 'Dir["test/**/*_test.rb"].sort.each { |file| require File.expand_path(file) }'
+      - name: Run tests with minimum Prism
+        run: |
+          bundle exec ruby -Itest -Ilib -e '
+            expected = ENV.fetch("PRISM_VERSION")
+            actual = Gem.loaded_specs.fetch("prism").version.to_s
+            abort "expected Prism #{expected}, got #{actual}" unless actual == expected
+            Dir["test/**/*_test.rb"].sort.each { |file| require File.expand_path(file) }
+          '
 
   shader-validation:
     runs-on: ubuntu-latest
