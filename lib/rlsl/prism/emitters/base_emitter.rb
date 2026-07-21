@@ -75,6 +75,9 @@ module RLSL
 
             raise RLSL::InternalError, "Unknown IR node: #{node.class}"
           end
+        rescue RLSL::Error => error
+          error.with_source_location(node.location) if node.respond_to?(:location)
+          raise
         end
 
         protected

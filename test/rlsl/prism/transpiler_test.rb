@@ -157,6 +157,44 @@ class PrismTranspilerTest < Test::Unit::TestCase
     assert_include error.message, "expected float, got vec2"
   end
 
+  test "IR nodes retain source locations after parameter extraction" do
+    compilation = @transpiler.compile_source("|coordinate|\n\nvalue = coordinate.x\nvalue")
+    declaration = compilation.ir.statements.first
+
+    assert_equal "(shader source)", declaration.location.source_name
+    assert_equal 3, declaration.location.line
+    assert_equal 1, declaration.location.column
+  end
+
+  test "type errors report the most specific source location" do
+    error = assert_raise(RLSL::Prism::SignatureError) do
+      @transpiler.compile_source("value = 1.0\nvector = vec2(value)\nvector.z")
+    end
+
+    assert_include error.message, "at (shader source):3:1"
+  end
+
+  test "target capability errors report their source location" do
+    error = assert_raise(RLSL::Prism::TargetCapabilityError) do
+      @transpiler.transpile_source("value = 1.0\nmat2(value)", :c)
+    end
+
+    assert_include error.message, "at (shader source):2:1"
+  end
+
+  test "Ruby block diagnostics retain the original file line" do
+    block = proc do
+      vector = vec2(1.0)
+      vector.z
+    end
+    expected_line = block.source_location.last + 2
+
+    error = assert_raise(RLSL::Prism::SignatureError) { @transpiler.compile_block(block) }
+
+    assert_include error.message, block.source_location.first
+    assert_include error.message, ":#{expected_line}:"
+  end
+
   test "compile_source preserves int arithmetic for custom int parameters" do
     transpiler = RLSL::Prism::Transpiler.new(
       { time: :float },

@@ -7,3 +7,4 @@ gemspec
 gem "rake"
 gem "rubocop", require: false
 gem "test-unit"
+gem "prism", ENV["PRISM_VERSION"] if ENV["PRISM_VERSION"]

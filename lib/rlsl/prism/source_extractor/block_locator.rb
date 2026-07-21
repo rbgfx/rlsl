@@ -11,14 +11,14 @@ module RLSL
           extract_unit(source, start_line).to_source
         end
 
-        def extract_unit(source, start_line, parameters: nil)
+        def extract_unit(source, start_line, parameters: nil, source_name: "(shader block)")
           parsed = ::Prism.parse(source)
           raise SourceNotAvailable, "Unable to parse block source" unless parsed.success?
 
           block = block_at_line(parsed.value, start_line, parameters)
           raise SourceNotAvailable, "Unable to locate block source" unless block
 
-          SourceUnit.from_block(block)
+          SourceUnit.from_block(block, source_name: source_name)
         end
 
         private

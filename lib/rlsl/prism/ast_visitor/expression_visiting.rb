@@ -130,7 +130,9 @@ module RLSL
             raise UnsupportedSyntaxError, "Unsupported if-expression: branches must be single expressions"
           end
 
-          IR::Ternary.new(node.condition, then_expr, else_expr)
+          IR::Ternary.new(node.condition, then_expr, else_expr).tap do |ternary|
+            ternary.location = node.location
+          end
         end
 
         def extract_if_branch_expr(branch)

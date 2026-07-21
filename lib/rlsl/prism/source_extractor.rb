@@ -22,7 +22,12 @@ module RLSL
         file, line_num = block.source_location
         raise SourceNotAvailable, "Block source location not available" unless file && File.exist?(file)
 
-        @block_locator.extract_unit(File.read(file), line_num, parameters: block.parameters)
+        @block_locator.extract_unit(
+          File.read(file),
+          line_num,
+          parameters: block.parameters,
+          source_name: file
+        )
       end
     end
   end

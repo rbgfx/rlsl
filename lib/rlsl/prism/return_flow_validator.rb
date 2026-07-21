@@ -43,7 +43,9 @@ module RLSL
       def validate_returning_block!(node, context)
         return if returns_value_on_all_paths?(node)
 
-        raise ReturnFlowError, "#{context} does not return a value on every path"
+        raise ReturnFlowError.new(
+          "#{context} does not return a value on every path"
+        ).with_source_location(node.location)
       end
 
       def returns_value_on_all_paths?(node)

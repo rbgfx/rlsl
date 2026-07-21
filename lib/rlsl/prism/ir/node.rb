@@ -4,7 +4,7 @@ module RLSL
   module Prism
     module IR
       class Node
-        attr_accessor :type
+        attr_accessor :type, :location
 
         def self.visits(method_name)
           define_method(:accept) do |visitor|

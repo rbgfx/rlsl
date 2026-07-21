@@ -94,11 +94,18 @@ module RLSL
       private
 
       def source_unit(source)
+        return source if source.is_a?(SourceUnit)
+
         SourceUnit.from_source(source)
       end
 
       def build_ir(unit)
-        visitor = ASTVisitor.new(uniforms: @uniforms, params: unit.params)
+        visitor = ASTVisitor.new(
+          uniforms: @uniforms,
+          params: unit.params,
+          source_name: unit.source_name,
+          line_offset: unit.line_offset
+        )
         visitor.parse(unit.body)
       end
 
@@ -140,14 +147,19 @@ module RLSL
 
           sig = signatures[stmt.name]
           unless sig
-            raise SignatureError, "Function #{stmt.name} requires an explicit signature in functions"
+            raise SignatureError.new(
+              "Function #{stmt.name} requires an explicit signature in functions"
+            ).with_source_location(stmt.location)
           end
 
           stmt.return_type = sig[:returns]
           stmt.param_types = sig[:params] || {}
           unless stmt.params == stmt.param_types.keys
-            raise SignatureError,
-                  "Function #{stmt.name} parameters #{stmt.params.inspect} do not match signature #{stmt.param_types.keys.inspect}"
+            error = SignatureError.new(
+              "Function #{stmt.name} parameters #{stmt.params.inspect} " \
+              "do not match signature #{stmt.param_types.keys.inspect}"
+            )
+            raise error.with_source_location(stmt.location)
           end
         end
       end

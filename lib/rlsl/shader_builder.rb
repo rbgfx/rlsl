@@ -35,8 +35,8 @@ module RLSL
       raise ArgumentError, "helpers mode must be :c or :ruby" unless %i[c ruby].include?(resolved_mode)
 
       if resolved_mode == :ruby
-        source = Prism::SourceExtractor.new.extract(block)
-        update_definition(@definition.with_helpers(mode: :ruby_source, block: -> { source }))
+        source_unit = Prism::SourceExtractor.new.extract_unit(block)
+        update_definition(@definition.with_helpers(mode: :ruby_source, block: -> { source_unit }))
       else
         update_definition(@definition.with_helpers(mode: :c, block: block))
       end
@@ -65,8 +65,8 @@ module RLSL
       end
 
       if resolved_mode == :ruby
-        source = Prism::SourceExtractor.new.extract(block)
-        update_definition(@definition.with_fragment(mode: :ruby_source, block: -> { source }))
+        source_unit = Prism::SourceExtractor.new.extract_unit(block)
+        update_definition(@definition.with_fragment(mode: :ruby_source, block: -> { source_unit }))
       else
         update_definition(@definition.with_fragment(mode: :c, block: block))
       end

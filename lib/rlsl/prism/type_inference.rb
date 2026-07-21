@@ -113,6 +113,9 @@ module RLSL
       def infer(node, scoped: false)
         options = node.is_a?(IR::Block) ? { scoped: scoped } : {}
         @inferer_registry.infer(node, **options) || node
+      rescue RLSL::Error => error
+        error.with_source_location(node.location)
+        raise
       end
 
       private

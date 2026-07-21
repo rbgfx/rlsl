@@ -154,6 +154,7 @@ class IssueRegressionsTest < Test::Unit::TestCase
       @transpiler.transpile_source(source, :wgsl)
     end
     assert_include error.message, "eager branch evaluation"
+    assert_include error.message, "at (shader source):1:9"
   end
 
   test "MSL texture calls use a declared sampler and preserve LOD" do

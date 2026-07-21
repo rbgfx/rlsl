@@ -36,6 +36,8 @@ module RLSL
       def initialize(context = {})
         @context = context
         @uniforms = context[:uniforms] || {}
+        @source_name = context[:source_name] || "(shader source)"
+        @line_offset = context[:line_offset].to_i
         params = context[:params] || []
         @scope_context = ScopeContext.new(params: params)
         positional_types = params.each_with_index.to_h do |name, index|
@@ -69,11 +71,17 @@ module RLSL
         return nil if node.nil?
 
         method_name = NODE_VISITORS[node.class]
-        return send(method_name, node) if method_name
+        result = if method_name
+                   send(method_name, node)
+                 else
+                   raise UnsupportedSyntaxError, "Unsupported Prism node: #{node.class}" unless transparent_node?(node)
 
-        raise UnsupportedSyntaxError, "Unsupported Prism node: #{node.class}" unless transparent_node?(node)
-
-        visit_default(node)
+                   visit_default(node)
+                 end
+        attach_source_location(result, node.location)
+      rescue RLSL::Error => error
+        error.with_source_location(source_location(node.location))
+        raise
       end
 
       private
@@ -138,6 +146,21 @@ module RLSL
         name = :"_rlsl_i#{@implicit_loop_index}"
         @implicit_loop_index += 1
         name
+      end
+
+      def attach_source_location(result, prism_location)
+        return result unless result.is_a?(IR::Node)
+
+        result.location ||= source_location(prism_location)
+        result
+      end
+
+      def source_location(prism_location)
+        RLSL::SourceLocation.new(
+          source_name: @source_name,
+          line: @line_offset + prism_location.start_line,
+          column: prism_location.start_column + 1
+        )
       end
     end
   end

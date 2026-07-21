@@ -146,7 +146,11 @@ RUBY
 
 A block with parameters is automatically treated as Ruby shader code. A no-argument block defaults to legacy C-source mode; use `fragment(:ruby) { vec3(1.0, 0.0, 0.0) }` to select Ruby mode explicitly. Raw helper or fragment source can be selected with `helpers(:c)` and `fragment(:c)`.
 
+WGSL generation supports Ruby shader source only. Legacy C snippets can still be translated to C, GLSL, and MSL, but `to_wgsl` rejects them because C declarations and function syntax cannot be converted into valid WGSL by identifier rewriting alone.
+
 Use `builder.uniform_types` to inspect declared uniform types. The block form of `uniforms` remains the declaration API.
+
+Uniform names must be ASCII identifiers and may not use the RLSL-reserved names `resolution`, `frag_coord`, or `u`. Duplicate uniform declarations are rejected. The generated GLSL uniform block uses `std140` at binding 1.
 
 ### Texture Resources
 
@@ -187,13 +191,15 @@ RLSL supports common shader functions:
 - `PI` - 3.14159265358979323846
 - `TAU` - 6.28318530717958647692
 
+Ruby-style `Math::PI` and `Math::TAU` are accepted as aliases in shader source.
+
 ## Requirements
 
 - Ruby >= 3.1.0
 - [Prism](https://github.com/ruby/prism) >= 1.0.0 (for Ruby parsing)
 - A working Ruby C-extension toolchain for `RLSL.define` (`make` is selected from Ruby's `RbConfig`)
 
-The test matrix covers supported Ruby releases on Ubuntu, macOS, and Windows. Metal runtime execution is macOS-only. GLSL, WGSL, and MSL source generation is platform-independent.
+The test matrix covers supported Ruby releases on Ubuntu, macOS, and Windows, and runs a dedicated compatibility job against the declared Prism 1.0.0 lower bound. Metal runtime execution is macOS-only. GLSL, WGSL, and MSL source generation is platform-independent.
 
 ### Optional: Metal Shader Execution (macOS only)
 

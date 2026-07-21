@@ -13,7 +13,12 @@ module RLSL
 
       def validate!(node, target)
         @target = target.to_sym
-        IR::Traversal.each(node) { |current| validate_node!(current) }
+        IR::Traversal.each(node) do |current|
+          validate_node!(current)
+        rescue RLSL::Error => error
+          error.with_source_location(current.location)
+          raise
+        end
         node
       end
 

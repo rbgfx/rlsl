@@ -50,6 +50,17 @@ class PrismSourceExtractorTest < Test::Unit::TestCase
     assert source.include?("z = x + y")
   end
 
+  test "extract_unit retains the source file and original body line" do
+    block = proc do
+      value = 1.0
+      value
+    end
+    unit = @extractor.extract_unit(block)
+
+    assert_equal block.source_location.first, unit.source_name
+    assert_equal block.source_location.last + 1, unit.line_offset + 1
+  end
+
   test "extract handles strings in code" do
     block = proc do
       s = "hello { world } do end"

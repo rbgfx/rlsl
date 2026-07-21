@@ -34,6 +34,25 @@ class PrismSourceUnitTest < Test::Unit::TestCase
     assert_equal "return x", helper_unit.body
   end
 
+  test "tracks source metadata and body line offsets" do
+    unit = RLSL::Prism::SourceUnit.from_source(
+      "\n|coordinate|\n\nvalue = coordinate.x\nvalue\n",
+      source_name: "generated_shader.rb"
+    )
+
+    assert_equal "generated_shader.rb", unit.source_name
+    assert_equal 3, unit.line_offset
+    assert_equal 4, unit.line_offset + 1
+  end
+
+  test "without_params preserves source metadata" do
+    unit = RLSL::Prism::SourceUnit.from_source("|x|\nreturn x", source_name: "helper.rb")
+    helper_unit = unit.without_params
+
+    assert_equal "helper.rb", helper_unit.source_name
+    assert_equal unit.line_offset, helper_unit.line_offset
+  end
+
   test "from_source keeps nested blocks in the body" do
     unit = RLSL::Prism::SourceUnit.from_source(<<~RUBY)
       values = [1.0].map do |x|

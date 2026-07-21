@@ -5,16 +5,18 @@ require_relative "parameter_list"
 
 module RLSL
   module Prism
-    SourceUnit = Struct.new(:params, :body, keyword_init: true) do
+    SourceUnit = Struct.new(:params, :body, :source_name, :line_offset, keyword_init: true) do
       class << self
-        def from_source(source)
-          SourceUnitParser.new(source).parse
+        def from_source(source, source_name: "(shader source)")
+          SourceUnitParser.new(source, source_name: source_name).parse
         end
 
-        def from_block(block)
+        def from_block(block, source_name: "(shader block)")
           new(
             params: extract_params(block),
-            body: block.body&.slice.to_s.strip
+            body: block.body&.slice.to_s.strip,
+            source_name: source_name,
+            line_offset: block.body ? block.body.location.start_line - 1 : block.location.start_line - 1
           )
         end
 
@@ -26,7 +28,7 @@ module RLSL
       end
 
       def without_params
-        self.class.new(params: [], body: body)
+        self.class.new(params: [], body: body, source_name: source_name, line_offset: line_offset)
       end
 
       def to_source
