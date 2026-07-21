@@ -39,6 +39,11 @@ module RLSL
       private
 
       def read_preserved_segment(index)
+        if preprocessor_start?(index)
+          directive, next_index = read_preprocessor(index)
+          return [{ type: :preprocessor, text: directive }, next_index]
+        end
+
         if line_comment_start?(index)
           comment, next_index = read_line_comment(index)
           return [{ type: :line_comment, text: comment }, next_index]
@@ -55,6 +60,28 @@ module RLSL
         end
 
         nil
+      end
+
+      def preprocessor_start?(index)
+        return false unless @code[index] == "#"
+
+        line_start = @code.rindex("\n", index - 1)
+        prefix = @code[(line_start ? line_start + 1 : 0)...index]
+        prefix.match?(/\A[ \t]*\z/)
+      end
+
+      def read_preprocessor(index)
+        cursor = index
+
+        loop do
+          newline_index = @code.index("\n", cursor)
+          return [@code[index..], @code.length] unless newline_index
+
+          line = @code[cursor...newline_index]
+          return [@code[index...newline_index], newline_index] unless line.rstrip.end_with?("\\")
+
+          cursor = newline_index + 1
+        end
       end
 
       def line_comment_start?(index)

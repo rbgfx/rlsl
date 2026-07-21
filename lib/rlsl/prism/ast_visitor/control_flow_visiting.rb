@@ -75,8 +75,9 @@ module RLSL
           end
 
           count = visit(node.receiver)
+          block_params = extract_block_params(node.block)
+          var_name = block_params.first || next_implicit_loop_variable
           block = visit(node.block) || IR::Block.new
-          var_name = extract_block_params(node.block).first || :i
           IR::ForLoop.new(var_name, IR::Literal.new(0, :int), count, block)
         end
 

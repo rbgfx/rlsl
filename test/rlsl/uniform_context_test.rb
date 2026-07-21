@@ -43,4 +43,26 @@ class UniformContextTest < Test::Unit::TestCase
     ctx.bool(:enabled)
     assert_equal :bool, ctx.uniforms[:enabled]
   end
+
+  test "rejects invalid uniform identifiers" do
+    ctx = RLSL::UniformContext.new
+
+    error = assert_raise(ArgumentError) { ctx.float(:"my-value") }
+    assert_include error.message, "Invalid uniform name"
+  end
+
+  test "rejects reserved uniform names" do
+    RLSL::UniformContext::RESERVED_NAMES.each do |name|
+      error = assert_raise(ArgumentError) { RLSL::UniformContext.new.float(name) }
+      assert_include error.message, "reserved"
+    end
+  end
+
+  test "rejects duplicate uniform names" do
+    ctx = RLSL::UniformContext.new
+    ctx.float(:time)
+
+    error = assert_raise(ArgumentError) { ctx.int("time") }
+    assert_include error.message, "already defined"
+  end
 end

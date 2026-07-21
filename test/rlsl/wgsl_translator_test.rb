@@ -3,26 +3,17 @@
 require_relative "../test_helper"
 
 class WGSLTranslatorTest < Test::Unit::TestCase
-  test "translate removes static keyword" do
-    translator = RLSL::WGSL::Translator.new({}, "static float x = 1.0;", "")
-    result = translator.translate
+  test "rejects legacy C source" do
+    translator = RLSL::WGSL::Translator.new({}, "float helper(void) { return 1.0f; }", "")
 
-    assert_false result.include?("static f32")
+    error = assert_raise(RLSL::TranslationError) { translator.translate }
+    assert_include error.message, "only supports Ruby shader source"
   end
 
-  test "translate removes inline keyword" do
-    translator = RLSL::WGSL::Translator.new({}, "inline float helper() { return 1.0; }", "")
-    result = translator.translate
+  test "accepts target WGSL source" do
+    translator = RLSL::WGSL::Translator.new({}, target_source("fn helper() -> f32 { return 1.0; }"), "")
 
-    assert_false result.include?("inline f32")
-  end
-
-  test "translate replaces float with f32" do
-    translator = RLSL::WGSL::Translator.new({}, "float x = 1.0;", "float y = 2.0;")
-    result = translator.translate
-
-    assert result.include?("f32 x = 1.0;")
-    assert result.include?("f32 y = 2.0;")
+    assert_include translator.translate, "fn helper() -> f32"
   end
 
   test "generates uniform struct with resolution" do
@@ -34,7 +25,7 @@ class WGSLTranslatorTest < Test::Unit::TestCase
   end
 
   test "generates compute shader with workgroup" do
-    translator = RLSL::WGSL::Translator.new({}, "", "return vec3<f32>(1.0);")
+    translator = RLSL::WGSL::Translator.new({}, "", target_source("return vec3<f32>(1.0);"))
     result = translator.translate
 
     assert result.include?("@compute @workgroup_size(8, 8)")
@@ -52,5 +43,11 @@ class WGSLTranslatorTest < Test::Unit::TestCase
     assert_equal "vec2<f32>", translator.send(:target_vec2_type)
     assert_equal "vec3<f32>", translator.send(:target_vec3_type)
     assert_equal "vec4<f32>", translator.send(:target_vec4_type)
+  end
+
+  private
+
+  def target_source(code)
+    RLSL::BaseTranslator::SourceSnippet.new(code: code, format: :target)
   end
 end

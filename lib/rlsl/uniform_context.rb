@@ -3,6 +3,8 @@
 module RLSL
   # DSL context for defining uniform variables
   class UniformContext
+    RESERVED_NAMES = %i[resolution u frag_coord].freeze
+
     attr_reader :uniforms
 
     def initialize
@@ -10,7 +12,15 @@ module RLSL
     end
 
     def define_uniform(name, type)
-      @uniforms[name] = type
+      normalized_name = RLSL.validate_identifier!(name, context: "uniform name").to_sym
+      if RESERVED_NAMES.include?(normalized_name)
+        raise ArgumentError, "Uniform name #{normalized_name.inspect} is reserved by RLSL"
+      end
+      if @uniforms.key?(normalized_name)
+        raise ArgumentError, "Uniform #{normalized_name.inspect} is already defined"
+      end
+
+      @uniforms[normalized_name] = type
     end
 
     RLSL::UNIFORM_TYPES.each do |type|

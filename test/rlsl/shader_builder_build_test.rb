@@ -93,14 +93,13 @@ class ShaderBuilderBuildMethodsRubyModeTest < Test::Unit::TestCase
     assert_kind_of RLSL::MSL::Shader, shader
   end
 
-  test "build_wgsl_shader with helpers" do
+  test "build_wgsl_shader rejects C helpers" do
     builder = RLSL::ShaderBuilder.new(:test_wgsl_helpers)
     builder.uniforms { float :time }
     builder.helpers(:c) { "// custom helper" }
     builder.fragment { "return vec3_new(1.0f, 0.0f, 0.0f);" }
 
-    wgsl = builder.build_wgsl_shader
-    assert_kind_of String, wgsl
+    assert_raise(RLSL::TranslationError) { builder.build_wgsl_shader }
   end
 
   test "build_glsl_shader with helpers" do

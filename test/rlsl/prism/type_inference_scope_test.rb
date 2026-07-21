@@ -46,6 +46,18 @@ class PrismTypeInferenceScopeTest < Test::Unit::TestCase
     assert_nil @type_inference.lookup(:i)
   end
 
+  test "loops require integer bounds" do
+    for_loop = RLSL::Prism::IR::ForLoop.new(
+      :i,
+      literal(0),
+      literal(4.5),
+      RLSL::Prism::IR::Block.new
+    )
+
+    error = assert_raise(RLSL::Prism::SignatureError) { infer(for_loop) }
+    assert_include error.message, "Loop bounds must be integers"
+  end
+
   test "function definitions infer return types and keep params scoped to the body" do
     definition = RLSL::Prism::IR::FunctionDefinition.new(
       :distance_from_origin,

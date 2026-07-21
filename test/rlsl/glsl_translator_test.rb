@@ -35,7 +35,7 @@ class GLSLTranslatorTest < Test::Unit::TestCase
     translator = RLSL::GLSL::Translator.new({ time: :float }, "", "")
     result = translator.translate
 
-    assert result.include?("layout(binding = 1) uniform ShaderUniforms")
+    assert result.include?("layout(std140, binding = 1) uniform ShaderUniforms")
     assert result.include?("vec2 resolution;")
     assert result.include?("float time;")
   end

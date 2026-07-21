@@ -43,6 +43,7 @@ module RLSL
         end
         @parameter_types = { frag_coord: :vec2, resolution: :vec2, u: :uniforms }.merge(positional_types)
         @parameter_bindings = { frag_coord: :frag_coord, resolution: :resolution, u: :u }
+        @implicit_loop_index = 0
         params.each_with_index do |name, index|
           @parameter_bindings[name.to_sym] = %i[frag_coord resolution u][index]
         end
@@ -131,6 +132,12 @@ module RLSL
 
       def declare_variable(name)
         @scope_context.declare(name)
+      end
+
+      def next_implicit_loop_variable
+        name = :"_rlsl_i#{@implicit_loop_index}"
+        @implicit_loop_index += 1
+        name
       end
     end
   end

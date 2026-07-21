@@ -66,7 +66,7 @@ module RLSL
               elements = emit_array_literal(node.initializer, for_static_init: true)
               "#{prefix}#{elem_type} #{node.name}[#{size}] = #{elements}"
             else
-              value = node.is_const ? emit_for_static_init(node.initializer, true) : emit(node.initializer)
+              value = node.is_static ? emit_for_static_init(node.initializer, true) : emit(node.initializer)
               "#{prefix}#{type_name(node.type || :float)} #{node.name} = #{value}"
             end
           end

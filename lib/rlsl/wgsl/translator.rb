@@ -21,6 +21,13 @@ module RLSL
 
       protected
 
+      def validate_source_format!(source)
+        return if source.target_code?
+
+        raise RLSL::TranslationError,
+              "WGSL generation only supports Ruby shader source; legacy C source cannot be translated to WGSL"
+      end
+
       def generate_shader(helpers, fragment)
         <<~WGSL
           #{generated_by_comment("WGSL")}

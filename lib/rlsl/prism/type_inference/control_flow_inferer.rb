@@ -44,6 +44,10 @@ module RLSL
       def infer_for_loop(node)
         @infer.call(node.range_start)
         @infer.call(node.range_end)
+        unless node.range_start.type == :int && node.range_end.type == :int
+          raise SignatureError,
+                "Loop bounds must be integers, got #{node.range_start.type.inspect} and #{node.range_end.type.inspect}"
+        end
 
         @infer_in_scope.call(node.variable => :int) do
           @infer.call(node.body)

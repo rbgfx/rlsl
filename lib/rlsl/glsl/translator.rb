@@ -67,7 +67,7 @@ module RLSL
       end
 
       def generate_uniform_declarations
-        declarations = ["layout(binding = 1) uniform ShaderUniforms {"]
+        declarations = ["layout(std140, binding = 1) uniform ShaderUniforms {"]
         declarations.concat(
           uniform_lines(resolution_line: "    #{target_vec2_type} resolution;") do |name, glsl_type|
             "    #{glsl_type} #{name};"

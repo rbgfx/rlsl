@@ -167,6 +167,17 @@ class PrismASTVisitorExtendedTest < Test::Unit::TestCase
     assert_kind_of RLSL::Prism::IR::Block, ir
   end
 
+  test "maps Math constants to shader constants" do
+    ir = @visitor.parse("x = Math::PI\ny = Math::TAU\nreturn x + y")
+
+    pi = ir.statements[0].initializer
+    tau = ir.statements[1].initializer
+    assert_kind_of RLSL::Prism::IR::Constant, pi
+    assert_equal :PI, pi.name
+    assert_kind_of RLSL::Prism::IR::Constant, tau
+    assert_equal :TAU, tau.name
+  end
+
   test "infer_param_type for frag_coord" do
     type = @visitor.send(:infer_param_type, :frag_coord)
     assert_equal :vec2, type
@@ -290,5 +301,15 @@ class PrismASTVisitorExtendedTest < Test::Unit::TestCase
     for_loop = ir.statements.first
     assert_kind_of RLSL::Prism::IR::ForLoop, for_loop
     assert_equal :i, for_loop.variable
+  end
+
+  test "implicit times loop variables are unique when nested" do
+    source = "2.times do\n  3.times do\n    1.0\n  end\nend\nreturn 1.0"
+    ir = @visitor.parse(source)
+    outer = ir.statements.first
+    inner = outer.body.statements.first
+
+    assert_equal :_rlsl_i0, outer.variable
+    assert_equal :_rlsl_i1, inner.variable
   end
 end

@@ -127,7 +127,8 @@ class IssueRegressionsTest < Test::Unit::TestCase
     fragment = "vec2 uv = frag_coord / resolution;\nreturn vec3(uv, 0.0);"
 
     glsl = RLSL::GLSL::Translator.new({}, "", fragment).translate
-    wgsl = RLSL::WGSL::Translator.new({}, "", fragment).translate
+    wgsl_fragment = RLSL::BaseTranslator::SourceSnippet.new(code: fragment, format: :target)
+    wgsl = RLSL::WGSL::Translator.new({}, "", wgsl_fragment).translate
     msl = RLSL::MSL::Translator.new({}, "", fragment).translate
 
     assert_equal 1, glsl.scan(/\buv =/).length
@@ -138,7 +139,8 @@ class IssueRegressionsTest < Test::Unit::TestCase
   test "WGSL emits module declarations and host shareable bool uniforms" do
     compilation = @transpiler.compile_source("$steps = 4\nvec3(1.0)")
     globals = @transpiler.emit(:wgsl, compilation: compilation, needs_return: false)
-    shader = RLSL::WGSL::Translator.new({ enabled: :bool }, "", "return vec3<f32>(1.0);").translate
+    fragment = RLSL::BaseTranslator::SourceSnippet.new(code: "return vec3<f32>(1.0);", format: :target)
+    shader = RLSL::WGSL::Translator.new({ enabled: :bool }, "", fragment).translate
 
     assert_include globals, "var<private> steps: i32 = 4"
     assert_include shader, "enabled: i32"

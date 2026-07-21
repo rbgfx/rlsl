@@ -28,10 +28,10 @@ class BaseTranslatorTranslationTest < Test::Unit::TestCase
   end
 
   test "translate rewrites nested calls without losing balanced arguments" do
-    translator = RLSL::WGSL::Translator.new({}, "", "vec3_new(mix_f(a, b, t), sinf(x), cosf(y))")
+    translator = RLSL::GLSL::Translator.new({}, "", "vec3_new(mix_f(a, b, t), sinf(x), cosf(y))")
     result = translator.translate
 
-    assert result.include?("vec3<f32>(mix(a, b, t), sin(x), cos(y))")
+    assert result.include?("vec3(mix(a, b, t), sin(x), cos(y))")
   end
 
   test "translate leaves Prism-targeted snippets untouched" do
@@ -64,6 +64,17 @@ class BaseTranslatorTranslationTest < Test::Unit::TestCase
 
     assert_include result, "/* int should stay test_func(a) */"
     assert_include result, "integer y = 2;"
+  end
+
+  test "translate leaves preprocessor directives unchanged" do
+    source = "#define int test_func(x) \\\n+  test_func(x)\nint y = test_func(z);"
+    translator = BaseTranslatorTestTranslator.new({}, source, "")
+
+    result = translator.translate
+
+    assert_include result, "#define int test_func(x)"
+    assert_include result, "  test_func(x)"
+    assert_include result, "integer y = replaced_func(z);"
   end
 
   test "translate handles nil helpers code" do

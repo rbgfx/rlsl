@@ -103,6 +103,22 @@ class BaseEmitterTest < Test::Unit::TestCase
     assert result.include?("static const float MY_CONST")
   end
 
+  test "emit static vector global with an aggregate initializer" do
+    init = RLSL::Prism::IR::FuncCall.new(
+      :vec3,
+      [
+        RLSL::Prism::IR::Literal.new(1.0, :float),
+        RLSL::Prism::IR::Literal.new(0.0, :float),
+        RLSL::Prism::IR::Literal.new(0.0, :float)
+      ],
+      nil,
+      :vec3
+    )
+    decl = RLSL::Prism::IR::GlobalDecl.new(:direction, init, type: :vec3, is_static: true)
+
+    assert_equal "static vec3 direction = {1.0f, 0.0f, 0.0f}", @emitter.emit(decl)
+  end
+
   test "emit_multiple_assignment with func call" do
     func_call = RLSL::Prism::IR::FuncCall.new(:get_pair, [])
     targets = [

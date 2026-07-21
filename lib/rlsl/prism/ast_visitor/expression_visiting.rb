@@ -110,6 +110,10 @@ module RLSL
           end
           path_parts.unshift(current.name.to_s) if current.respond_to?(:name)
 
+          if path_parts.first == "Math" && %w[PI TAU].include?(path_parts.last) && path_parts.length == 2
+            return IR::Constant.new(path_parts.last.to_sym, :float)
+          end
+
           IR::VarRef.new(path_parts.join("_").to_sym)
         end
 

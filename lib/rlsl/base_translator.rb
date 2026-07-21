@@ -46,10 +46,13 @@ module RLSL
     def translate_code(source)
       snippet = normalize_source(source)
       return "" if snippet.code.empty?
+      validate_source_format!(snippet)
       return snippet.code if snippet.target_code?
 
       profile.translate(snippet.code)
     end
+
+    def validate_source_format!(_source); end
 
     def generate_shader(_helpers, _fragment)
       raise NotImplementedError, "Subclasses must implement generate_shader"
