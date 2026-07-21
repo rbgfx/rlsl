@@ -6,4 +6,5 @@ module RLSL
   class ParseError < Error; end
   class TranslationError < Error; end
   class CompilationError < Error; end
+  class UniformValueError < ArgumentError; end
 end

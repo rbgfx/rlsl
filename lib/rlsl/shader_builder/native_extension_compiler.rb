@@ -25,8 +25,9 @@ module RLSL
         @fast_math = fast_math
       end
 
-      def build(c_code)
-        artifact = artifact_for(c_code)
+      def build(c_code, ext_name: nil)
+        resolved_ext_name = ext_name || declared_extension_name(c_code) || extension_name_for(c_code)
+        artifact = artifact_for(c_code, ext_name: resolved_ext_name)
         FileUtils.mkdir_p(artifact.directory)
         File.open(File.join(artifact.directory, ".build.lock"), "w") do |lock|
           lock.flock(File::LOCK_EX)
@@ -35,26 +36,34 @@ module RLSL
         artifact
       end
 
+      def extension_name_for(c_code)
+        code_hash = Digest::SHA256.hexdigest(c_code)[0, 16]
+        "#{@shader_name}_#{code_hash}"
+      end
+
       private
 
-      def artifact_for(c_code)
-        code_hash = Digest::SHA256.hexdigest(c_code)[0, 16]
-        ext_name = "#{@shader_name}_#{code_hash}"
-        directory = File.join(@cache_dir, ext_name)
+      def artifact_for(c_code, ext_name: extension_name_for(c_code))
+        validated_ext_name = RLSL.validate_identifier!(ext_name, context: "extension name")
+        directory = File.join(@cache_dir, extension_name_for(c_code))
 
         Artifact.new(
-          ext_name: ext_name,
+          ext_name: validated_ext_name,
           directory: directory,
-          file: File.join(directory, "#{@shader_name}.#{@dylib_ext}")
+          file: File.join(directory, "#{validated_ext_name}.#{@dylib_ext}")
         )
       end
 
       def compile(artifact, c_code)
-        File.write(File.join(artifact.directory, "#{@shader_name}.c"), c_code)
-        File.write(File.join(artifact.directory, "extconf.rb"), extconf_source(@shader_name))
+        File.write(File.join(artifact.directory, "#{artifact.ext_name}.c"), c_code)
+        File.write(File.join(artifact.directory, "extconf.rb"), extconf_source(artifact.ext_name))
 
         run_command!(@ruby_bin, "extconf.rb", chdir: artifact.directory)
         run_command!(*@make_command, chdir: artifact.directory)
+      end
+
+      def declared_extension_name(c_code)
+        c_code[/\bvoid\s+Init_([A-Za-z_][A-Za-z0-9_]*)\s*\(/, 1]
       end
 
       def extconf_source(ext_name)

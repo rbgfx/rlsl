@@ -259,10 +259,19 @@ class IssueRegressionsTest < Test::Unit::TestCase
         vec3(product.x + blended.y + separation, normal.z, angle)
       RUBY
       code = RLSL::CodeGenerator.new(:buffer_shader, {}, nil, -> { fragment }).generate
-      artifact = RLSL::ShaderBuilder::NativeExtensionCompiler.new(
+      compiler = RLSL::ShaderBuilder::NativeExtensionCompiler.new(
         :buffer_shader,
         cache_dir: cache_dir
-      ).build(code)
+      )
+      extension_name = compiler.extension_name_for(code)
+      code = RLSL::CodeGenerator.new(
+        :buffer_shader,
+        {},
+        nil,
+        -> { fragment },
+        extension_name: extension_name
+      ).generate
+      artifact = compiler.build(code, ext_name: extension_name)
       assert_native_buffer_contract(artifact.file)
     end
   end

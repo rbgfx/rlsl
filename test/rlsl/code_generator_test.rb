@@ -33,6 +33,20 @@ class CodeGeneratorTest < Test::Unit::TestCase
     assert code.include?("Init_my_shader")
   end
 
+  test "generates a distinct native extension init name" do
+    gen = RLSL::CodeGenerator.new(
+      :my_shader,
+      {},
+      nil,
+      -> { "return vec3_new(1.0f, 0.0f, 0.0f);" },
+      extension_name: :my_shader_a1b2c3
+    )
+    code = gen.generate
+
+    assert_include code, "Init_my_shader_a1b2c3"
+    assert_include code, '"my_shader_render"'
+  end
+
   test "includes math helpers" do
     gen = RLSL::CodeGenerator.new(:test, {}, nil, -> { "" })
     code = gen.generate
@@ -168,6 +182,12 @@ class CodeGeneratorTest < Test::Unit::TestCase
     gen = RLSL::CodeGenerator.new(:test, {}, nil, -> { "" })
     code = gen.generate
     assert code.include?("typedef struct { unsigned char _unused; } Uniforms;")
+  end
+
+  test "handles a missing fragment block" do
+    code = RLSL::CodeGenerator.new(:test, {}, nil, nil).generate
+
+    assert_include code, "static vec3 shader_test"
   end
 
   test "generates vec2 uniform in struct" do

@@ -18,7 +18,7 @@ module RLSL
       if block_given?
         ctx = UniformContext.new
         ctx.instance_eval(&block)
-        @definition = @definition.with_uniforms(ctx.uniforms)
+        update_definition(@definition.with_uniforms(ctx.uniforms))
       else
         @definition.uniforms
       end
@@ -36,20 +36,20 @@ module RLSL
 
       if resolved_mode == :ruby
         source = Prism::SourceExtractor.new.extract(block)
-        @definition = @definition.with_helpers(mode: :ruby_source, block: -> { source })
+        update_definition(@definition.with_helpers(mode: :ruby_source, block: -> { source }))
       else
-        @definition = @definition.with_helpers(mode: :c, block: block)
+        update_definition(@definition.with_helpers(mode: :c, block: block))
       end
     end
 
     def helpers_source(source)
-      @definition = @definition.with_helpers(mode: :ruby_source, block: -> { source.to_s })
+      update_definition(@definition.with_helpers(mode: :ruby_source, block: -> { source.to_s }))
     end
 
     def functions(&block)
       ctx = FunctionContext.new
       ctx.instance_eval(&block)
-      @definition = @definition.with_custom_functions(ctx.functions)
+      update_definition(@definition.with_custom_functions(ctx.functions))
     end
 
     def fragment(mode = :auto, &block)
@@ -66,14 +66,14 @@ module RLSL
 
       if resolved_mode == :ruby
         source = Prism::SourceExtractor.new.extract(block)
-        @definition = @definition.with_fragment(mode: :ruby_source, block: -> { source })
+        update_definition(@definition.with_fragment(mode: :ruby_source, block: -> { source }))
       else
-        @definition = @definition.with_fragment(mode: :c, block: block)
+        update_definition(@definition.with_fragment(mode: :c, block: block))
       end
     end
 
     def fragment_source(source)
-      @definition = @definition.with_fragment(mode: :ruby_source, block: -> { source.to_s })
+      update_definition(@definition.with_fragment(mode: :ruby_source, block: -> { source.to_s }))
     end
 
     def compile_and_load
@@ -103,7 +103,12 @@ module RLSL
     private
 
     def build_service
-      BuildService.new(@name, @definition)
+      @build_service ||= BuildService.new(@name, @definition)
+    end
+
+    def update_definition(definition)
+      @definition = definition
+      @build_service = nil
     end
   end
 end

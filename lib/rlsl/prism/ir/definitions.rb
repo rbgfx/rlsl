@@ -61,6 +61,20 @@ module RLSL
         def to_sym
           :"tuple_#{types.map(&:to_s).join('_')}"
         end
+
+        def ==(other)
+          other.is_a?(self.class) && types == other.types
+        end
+
+        alias eql? ==
+
+        def hash
+          [self.class, types].hash
+        end
+
+        def inspect
+          "#<#{self.class.name} #{types.inspect}>"
+        end
       end
     end
   end

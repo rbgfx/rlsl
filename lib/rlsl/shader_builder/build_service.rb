@@ -11,8 +11,11 @@ module RLSL
       end
 
       def compile_and_load
-        c_code = generate_c_code
-        artifact = native_extension_compiler.build(c_code)
+        compiler = native_extension_compiler
+        base_code = generate_c_code
+        extension_name = compiler.extension_name_for(base_code)
+        c_code = generate_c_code(extension_name: extension_name)
+        artifact = compiler.build(c_code, ext_name: extension_name)
 
         require artifact.file
         CompiledShader.new(@name, artifact.ext_name, @definition.uniforms)
@@ -52,9 +55,15 @@ module RLSL
 
       private
 
-      def generate_c_code
+      def generate_c_code(extension_name: @name)
         helpers_code, fragment_code = resolved_sources(:c)
-        codegen = CodeGenerator.new(@name, @definition.uniforms, -> { helpers_code }, -> { fragment_code })
+        codegen = CodeGenerator.new(
+          @name,
+          @definition.uniforms,
+          -> { helpers_code },
+          -> { fragment_code },
+          extension_name: extension_name
+        )
         codegen.generate
       end
 

@@ -75,7 +75,26 @@ class ShaderBuilderCoreTest < Test::Unit::TestCase
     artifact = compiler.send(:artifact_for, "void test(void) {}")
 
     assert_match(/^test_shader_[0-9a-f]{16}$/, artifact.ext_name)
-    assert_include artifact.file, "test_shader."
+    assert_include artifact.file, "#{artifact.ext_name}."
+  end
+
+  test "memoizes the build service until the definition changes" do
+    builder = RLSL::ShaderBuilder.new(:memoized)
+    first = builder.send(:build_service)
+
+    assert_same first, builder.send(:build_service)
+
+    builder.fragment_source("vec3(1.0)")
+    assert_not_same first, builder.send(:build_service)
+  end
+
+  test "native extension identity includes the code hash" do
+    compiler = RLSL::ShaderBuilder::NativeExtensionCompiler.new(:same_name)
+    first = compiler.extension_name_for("first")
+    second = compiler.extension_name_for("second")
+
+    assert_match(/^same_name_[0-9a-f]{16}$/, first)
+    assert_not_equal first, second
   end
 
   test "build_wgsl_shader rejects legacy C fragments" do

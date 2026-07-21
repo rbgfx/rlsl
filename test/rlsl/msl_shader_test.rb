@@ -126,7 +126,7 @@ class MSLShaderTest < Test::Unit::TestCase
   test "pack_uniforms raises for invalid vector values" do
     shader = RLSL::MSL::Shader.new(:test, { color: :vec3 }, "")
 
-    error = assert_raise(ArgumentError) do
+    error = assert_raise(RLSL::UniformValueError) do
       shader.send(:pack_uniforms, { color: [1.0, 0.5] }, 800, 600)
     end
 

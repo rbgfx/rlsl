@@ -17,7 +17,7 @@ module RLSL
         return value if type.nil?
 
         spec = fetch(type)
-        raise ArgumentError, unsupported_runtime_type_message(type, shader_name) unless spec.runtime_supported?
+        raise UniformValueError, unsupported_runtime_type_message(type, shader_name) unless spec.runtime_supported?
 
         case spec.wrapper_kind
         when :float
@@ -29,14 +29,12 @@ module RLSL
         when :vector
           normalize_vector(value, spec.vector_size, name: name, shader_name: shader_name)
         else
-          raise ArgumentError, unsupported_runtime_type_message(type, shader_name)
+          raise UniformValueError, unsupported_runtime_type_message(type, shader_name)
         end
-      rescue TypeError
-        raise ArgumentError, invalid_uniform_message(name, type, value, shader_name)
-      rescue ArgumentError => e
-        raise e if e.message.start_with?("Invalid value for uniform", "Unsupported runtime uniform type")
-
-        raise ArgumentError, invalid_uniform_message(name, type, value, shader_name)
+      rescue UniformValueError
+        raise
+      rescue TypeError, ArgumentError
+        raise UniformValueError, invalid_uniform_message(name, type, value, shader_name)
       end
 
       def normalize_bool(value, name:, shader_name: nil)
@@ -44,12 +42,12 @@ module RLSL
         return false if value == 0
         return true if value == 1
 
-        raise ArgumentError, invalid_uniform_message(name, :bool, value, shader_name)
+        raise UniformValueError, invalid_uniform_message(name, :bool, value, shader_name)
       end
 
       def normalize_vector(value, vector_size, name:, shader_name: nil)
         unless value.is_a?(Array) && value.length == vector_size
-          raise ArgumentError, invalid_vector_message(name, vector_size, value, shader_name)
+          raise UniformValueError, invalid_vector_message(name, vector_size, value, shader_name)
         end
 
         value.map { |component| Float(component) }

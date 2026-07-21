@@ -125,12 +125,24 @@ class CompiledShaderTest < Test::Unit::TestCase
 
     shader = RLSL::CompiledShader.new(:invalid_uniform, "invalid_uniform", { color: :vec3 })
 
-    error = assert_raise(ArgumentError) do
+    error = assert_raise(RLSL::UniformValueError) do
       shader.render("buf", 320, 240, { color: [1.0, 0.5] })
     end
 
     assert_include error.message, "expected vec3"
   ensure
     RLSL::CompiledShaders.singleton_class.remove_method(:invalid_uniform_render) if RLSL::CompiledShaders.respond_to?(:invalid_uniform_render)
+  end
+
+  test "conversion errors are normalized without inspecting their message" do
+    value = Object.new
+    value.define_singleton_method(:to_f) { raise ArgumentError, "Invalid value for uniform spoof" }
+
+    error = assert_raise(RLSL::UniformValueError) do
+      RLSL::UniformTypes.normalize_value(:float, value, name: :amount)
+    end
+
+    assert_include error.message, "expected float"
+    assert_not_include error.message, "spoof"
   end
 end

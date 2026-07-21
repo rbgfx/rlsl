@@ -8,12 +8,13 @@ require_relative "code_generator/ruby_wrapper_generator"
 
 module RLSL
   class CodeGenerator
-    def initialize(name, uniforms, helpers_block, fragment_block)
+    def initialize(name, uniforms, helpers_block, fragment_block, extension_name: name)
       @context = TemplateContext.new(
         name: name,
         uniforms: uniforms,
         helpers_block: helpers_block,
-        fragment_block: fragment_block
+        fragment_block: fragment_block,
+        extension_name: extension_name
       )
     end
 
@@ -47,7 +48,7 @@ module RLSL
 
     def init_function
       <<~C
-        void Init_#{@context.name}(void) {
+        void Init_#{@context.extension_name}(void) {
           VALUE mRLSL = rb_define_module("RLSL");
           VALUE mShaders = rb_define_module_under(mRLSL, "CompiledShaders");
           rb_define_module_function(mShaders, "#{@context.name}_render", shader_#{@context.name}_render, #{@context.render_arity});

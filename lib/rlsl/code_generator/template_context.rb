@@ -3,10 +3,11 @@
 module RLSL
   class CodeGenerator
     class TemplateContext
-      attr_reader :name
+      attr_reader :name, :extension_name
 
-      def initialize(name:, uniforms:, helpers_block:, fragment_block:)
+      def initialize(name:, uniforms:, helpers_block:, fragment_block:, extension_name: name)
         @name = RLSL.validate_shader_name!(name)
+        @extension_name = RLSL.validate_identifier!(extension_name, context: "extension name")
         @uniforms = uniforms
         @helpers_block = helpers_block
         @fragment_block = fragment_block
@@ -23,6 +24,8 @@ module RLSL
       end
 
       def fragment_code
+        return "" unless @fragment_block
+
         @fragment_block.call
       end
 
