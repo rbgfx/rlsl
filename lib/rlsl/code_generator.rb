@@ -51,7 +51,7 @@ module RLSL
         void Init_#{@context.extension_name}(void) {
           VALUE mRLSL = rb_define_module("RLSL");
           VALUE mShaders = rb_define_module_under(mRLSL, "CompiledShaders");
-          rb_define_module_function(mShaders, "#{@context.name}_render", shader_#{@context.name}_render, #{@context.render_arity});
+          rb_define_module_function(mShaders, "#{@context.extension_name}_render", shader_#{@context.name}_render, #{@context.render_arity});
         }
       C
     end

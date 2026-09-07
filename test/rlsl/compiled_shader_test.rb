@@ -26,6 +26,23 @@ class CompiledShaderTest < Test::Unit::TestCase
     RLSL::CompiledShaders.singleton_class.remove_method(:basic_shader_render) if RLSL::CompiledShaders.respond_to?(:basic_shader_render)
   end
 
+  test "uses the content-specific extension render method" do
+    calls = []
+    RLSL::CompiledShaders.define_singleton_method(:same_name_first_render) { |*| calls << :first }
+    RLSL::CompiledShaders.define_singleton_method(:same_name_second_render) { |*| calls << :second }
+
+    first = RLSL::CompiledShader.new(:same_name, "same_name_first", [])
+    second = RLSL::CompiledShader.new(:same_name, "same_name_second", [])
+    first.render("buf", 1, 1)
+    second.render("buf", 1, 1)
+
+    assert_equal %i[first second], calls
+  ensure
+    %i[same_name_first_render same_name_second_render].each do |method_name|
+      RLSL::CompiledShaders.singleton_class.remove_method(method_name) if RLSL::CompiledShaders.respond_to?(method_name)
+    end
+  end
+
   test "render calls render method with correct arguments" do
     call_args = nil
 

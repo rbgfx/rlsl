@@ -5,7 +5,7 @@ module RLSL
     def initialize(name, ext_name, uniforms)
       super(name, uniforms)
       @ext_name = ext_name
-      @render_method = RLSL::CompiledShaders.method("#{name}_render")
+      @render_method = RLSL::CompiledShaders.method("#{ext_name}_render")
     end
 
     def render(buffer, width, height, uniforms = {})

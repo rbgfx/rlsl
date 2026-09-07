@@ -44,7 +44,7 @@ class CodeGeneratorTest < Test::Unit::TestCase
     code = gen.generate
 
     assert_include code, "Init_my_shader_a1b2c3"
-    assert_include code, '"my_shader_render"'
+    assert_include code, '"my_shader_a1b2c3_render"'
   end
 
   test "includes math helpers" do
