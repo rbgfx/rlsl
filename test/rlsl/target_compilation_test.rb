@@ -33,36 +33,7 @@ class TargetCompilationTest < Test::Unit::TestCase
   end
 
   test "generated tuple helpers and assignments pass GLSL and WGSL validation" do
-    builder = RLSL::ShaderBuilder.new(:tuple_compiler_checked)
-    builder.functions do
-      define :pair, returns: %i[float float], params: { value: :int }
-      define :identity, returns: :float, params: { value: :float }
-    end
-    builder.helpers_source(<<~RUBY)
-      def pair(value)
-        [value, value]
-      end
-
-      def identity(value)
-        value
-      end
-    RUBY
-    builder.fragment_source(<<~RUBY)
-      n = 3
-      hits = 0
-      n.times do
-        n -= 1
-        hits += 1
-      end
-      a, b = pair(hits)
-      a, b = [b, a]
-      converted = identity(hits)
-      mixed = hits + 0.5
-      scaled = vec3(0.25) * hits
-      wrapped = -1.0 % 2 + mod(-1, 2)
-      vec3(a, b, hits / 3 + wrapped + mixed + converted) + scaled
-    RUBY
-
+    builder = tuple_builder
     require_command!("glslangValidator", "REQUIRE_GLSL_COMPILER")
     with_shader_file("tuple.comp", builder.build_glsl_shader) do |path, directory|
       assert_command_success("glslangValidator", "-V", path, "-o", File.join(directory, "tuple.spv"))
@@ -82,6 +53,9 @@ class TargetCompilationTest < Test::Unit::TestCase
 
     with_shader_file("shader.metal", generated_msl) do |path, directory|
       assert_command_success("xcrun", "metal", "-c", path, "-o", File.join(directory, "shader.air"))
+    end
+    with_shader_file("tuple.metal", tuple_builder.build_metal_shader.msl_source) do |path, directory|
+      assert_command_success("xcrun", "metal", "-c", path, "-o", File.join(directory, "tuple.air"))
     end
   end
 
@@ -130,6 +104,39 @@ class TargetCompilationTest < Test::Unit::TestCase
 
   def generated_msl
     shader_builder.build_metal_shader.msl_source
+  end
+
+  def tuple_builder
+    builder = RLSL::ShaderBuilder.new(:tuple_compiler_checked)
+    builder.functions do
+      define :pair, returns: %i[float float], params: { value: :int }
+      define :identity, returns: :float, params: { value: :float }
+    end
+    builder.helpers_source(<<~RUBY)
+      def pair(value)
+        [value, value]
+      end
+
+      def identity(value)
+        value
+      end
+    RUBY
+    builder.fragment_source(<<~RUBY)
+      n = 3
+      hits = 0
+      n.times do
+        n -= 1
+        hits += 1
+      end
+      a, b = pair(hits)
+      a, b = [b, a]
+      converted = identity(hits)
+      mixed = hits + 0.5
+      scaled = vec3(0.25) * hits
+      wrapped = -1.0 % 2 + mod(-1, 2)
+      vec3(a, b, hits / 3 + wrapped + mixed + converted) + scaled
+    RUBY
+    builder
   end
 
   def with_shader_file(filename, source)
