@@ -33,7 +33,7 @@ module RLSL
         end
       rescue UniformValueError
         raise
-      rescue TypeError, ArgumentError
+      rescue TypeError, ArgumentError, RangeError
         raise UniformValueError, invalid_uniform_message(name, type, value, shader_name)
       end
 

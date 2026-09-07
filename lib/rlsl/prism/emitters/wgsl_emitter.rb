@@ -71,6 +71,18 @@ module RLSL
                 "WGSL conditional expressions cannot be emitted without eager branch evaluation"
         end
 
+        def emit_binary_op(node)
+          return emit_named_call("rlsl_mod", [node.left, node.right]) if node.operator == "%" && node.type == :float
+
+          super
+        end
+
+        def emit_func_call(node)
+          return emit_named_call("rlsl_mod", node.args) if node.name.to_sym == :mod
+
+          super
+        end
+
         def emit_function_definition(node)
           name = node.name
           params = node.params.map do |param|

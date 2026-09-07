@@ -49,6 +49,18 @@ module RLSL
           "#{texture}.sample(rlsl_texture_sampler, #{uv})"
         end
 
+        def emit_binary_op(node)
+          return emit_named_call("rlsl_mod", [node.left, node.right]) if node.operator == "%" && node.type == :float
+
+          super
+        end
+
+        def emit_func_call(node)
+          return emit_named_call("rlsl_mod", node.args) if node.name.to_sym == :mod
+
+          super
+        end
+
         def emit_field_access(node)
           return node.field.to_s if node.receiver.type == :uniforms && node.type == :sampler2D
 

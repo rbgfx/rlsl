@@ -138,6 +138,14 @@ module RLSL
         @scope_context.root_parameter?(name)
       end
 
+      def emitted_assignment_name(name)
+        if fragment_parameter_reference?(name) && infer_param_type(name) == :uniforms
+          raise UnsupportedSyntaxError, "The fragment uniform parameter cannot be reassigned"
+        end
+
+        fragment_parameter_reference?(name) ? emitted_parameter_name(name) : name
+      end
+
       def known_variable?(name)
         @scope_context.known_variable?(name)
       end

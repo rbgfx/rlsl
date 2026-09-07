@@ -56,6 +56,12 @@ class ReviewRegressionsTest < Test::Unit::TestCase
     assert_not_include code, "\ncoord = pair[0]"
   end
 
+  test "the fragment uniform binding cannot be reassigned through an alias" do
+    assert_raise(RLSL::Prism::UnsupportedSyntaxError) do
+      @transpiler.compile_source("|coord, size, data|\ndata = data\nvec3(1.0)")
+    end
+  end
+
   test "WGSL tuple assignment uses WGSL temporary syntax" do
     transpiler = RLSL::Prism::Transpiler.new(
       {},
@@ -195,6 +201,18 @@ class ReviewRegressionsTest < Test::Unit::TestCase
     assert_equal [255, 255, 255, 255], render_native(:review_semantics, fragment, functions:, helpers:)
   end
 
+  test "float modulo uses floor semantics on every target" do
+    source = "vec3(-1.0 % 2.0 + mod(-1.0, 2.0))"
+    outputs = %i[c glsl wgsl msl].to_h do |target|
+      [target, @transpiler.transpile_source(source, target)]
+    end
+
+    assert_equal 2, outputs[:c].scan("rlsl_mod").length
+    assert_equal 2, outputs[:glsl].scan("mod(").length
+    assert_equal 2, outputs[:wgsl].scan("rlsl_mod").length
+    assert_equal 2, outputs[:msl].scan("rlsl_mod").length
+  end
+
   test "native shader cache preserves A B A renderer identity" do
     Dir.mktmpdir("rlsl-review-cache") do |cache_dir|
       colors = [
@@ -209,6 +227,30 @@ class ReviewRegressionsTest < Test::Unit::TestCase
       end
 
       assert_equal [[0, 0, 255, 255], [0, 255, 0, 255], [0, 0, 255, 255]], colors
+    end
+  end
+
+  test "tuple helpers compile and run in a native shader" do
+    functions = { pair: { returns: %i[float float], params: { value: :float } } }
+    helpers = RLSL::Prism::Transpiler.new({}, functions).transpile_helpers_source(
+      "def pair(value)\n[value, 0.0]\nend",
+      :c,
+      functions
+    )
+
+    assert_equal [0, 0, 255, 255], render_native(
+      :review_tuple,
+      "a, b = pair(1.0)\nvec3(a, b, 0.0)",
+      functions:,
+      helpers:
+    )
+  end
+
+  test "integer normalization rejects non-finite and out-of-range values uniformly" do
+    [Float::NAN, Float::INFINITY, 2**31, -2**31 - 1].each do |value|
+      assert_raise(RLSL::UniformValueError) do
+        RLSL::UniformTypes.normalize_value(:int, value, name: :count)
+      end
     end
   end
 

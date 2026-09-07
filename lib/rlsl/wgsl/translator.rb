@@ -40,6 +40,10 @@ module RLSL
           @group(0) @binding(1) var output_texture: texture_storage_2d<rgba8unorm, write>;
           #{generate_texture_declarations}
 
+          fn rlsl_mod(x: f32, y: f32) -> f32 {
+              return x - y * floor(x / y);
+          }
+
           #{helpers}
 
           fn shader_fragment(_rlsl_frag_coord: vec2<f32>, _rlsl_resolution: vec2<f32>) -> vec3<f32> {

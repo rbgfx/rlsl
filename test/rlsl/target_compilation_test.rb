@@ -47,7 +47,8 @@ class TargetCompilationTest < Test::Unit::TestCase
       end
       a, b = pair(0.5)
       a, b = [b, a]
-      vec3(a, b, hits / 3)
+      wrapped = -1.0 % 2.0 + mod(-1.0, 2.0)
+      vec3(a, b, hits / 3 + wrapped)
     RUBY
 
     require_command!("glslangValidator", "REQUIRE_GLSL_COMPILER")

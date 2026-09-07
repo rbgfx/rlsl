@@ -27,6 +27,10 @@ module RLSL
 
           constexpr sampler rlsl_texture_sampler(coord::normalized, address::clamp_to_edge, filter::linear);
 
+          float rlsl_mod(float x, float y) {
+              return x - y * floor(x / y);
+          }
+
           // Uniform buffer structure
           struct Uniforms {
               #{generate_uniform_struct}
