@@ -69,6 +69,14 @@ class PrismBuiltinsTest < Test::Unit::TestCase
     assert_equal :float, RLSL::Prism::Builtins.resolve_return_type(:float, [])
   end
 
+  test "numeric return rules promote integer inputs without losing vector types" do
+    assert_equal :float, RLSL::Prism::Builtins.resolve_return_type(:floating, [:int])
+    assert_equal :vec3, RLSL::Prism::Builtins.resolve_return_type(:floating, [:vec3])
+    assert_equal :float, RLSL::Prism::Builtins.resolve_return_type(:common, %i[int float])
+    assert_equal :float, RLSL::Prism::Builtins.resolve_return_type(:interpolated, %i[int int float])
+    assert_nil RLSL::Prism::Builtins.resolve_return_type(:common, %i[bool bool])
+  end
+
   test "function_signature returns signature" do
     sig = RLSL::Prism::Builtins.function_signature(:sin)
     assert_equal :float, sig[:returns]

@@ -79,6 +79,14 @@ module RLSL
           %i[float int].include?(type)
         end
 
+        def common_type(types)
+          types = Array(types).compact.uniq
+          return types.first if types.length == 1
+          return :float if types.sort == %i[float int]
+
+          nil
+        end
+
         def scalar_arithmetic_result_type(op, left_type, right_type)
           return :float unless scalar_type?(left_type) && scalar_type?(right_type)
           return :float if op.to_s == "/"

@@ -5,7 +5,7 @@ module RLSL
     module Builtins
       module FunctionRegistry
         ALL_TARGETS = %i[c glsl wgsl msl].freeze
-        META_TYPES = %i[any same first second third].freeze
+        META_TYPES = %i[any same first second third common floating interpolated].freeze
 
         FUNCTIONS = {
           vec2: { args: %i[any any], returns: :vec2, variadic: true, min_args: 1 },
@@ -27,18 +27,18 @@ module RLSL
           pow: { args: %i[float float], returns: :float },
           exp: { args: [:float], returns: :float },
           log: { args: [:float], returns: :float },
-          sqrt: { args: [:any], returns: :same },
+          sqrt: { args: [:any], returns: :floating },
 
           abs: { args: [:any], returns: :same },
           sign: { args: [:any], returns: :same },
-          floor: { args: [:any], returns: :same },
-          ceil: { args: [:any], returns: :same },
-          fract: { args: [:any], returns: :same },
+          floor: { args: [:any], returns: :floating },
+          ceil: { args: [:any], returns: :floating },
+          fract: { args: [:any], returns: :floating },
           mod: { args: %i[float float], returns: :float },
-          min: { args: %i[any any], returns: :first },
-          max: { args: %i[any any], returns: :first },
-          clamp: { args: %i[any any any], returns: :first },
-          mix: { args: %i[any any float], returns: :first },
+          min: { args: %i[any any], returns: :common },
+          max: { args: %i[any any], returns: :common },
+          clamp: { args: %i[any any any], returns: :common },
+          mix: { args: %i[any any float], returns: :interpolated },
           step: { args: %i[float any], returns: :second },
           smoothstep: { args: %i[float float any], returns: :third },
 
@@ -101,12 +101,29 @@ module RLSL
           when :first then arg_types.first
           when :second then arg_types[1]
           when :third then arg_types[2]
+          when :common
+            type = OperatorRules.common_type(arg_types)
+            type if numeric_type?(type)
+          when :floating
+            type = arg_types.first
+            return :float if type == :int
+
+            type if type == :float || OperatorRules.vector_type?(type)
+          when :interpolated
+            type = OperatorRules.common_type(arg_types.first(2))
+            return :float if type == :int
+
+            type if numeric_type?(type)
           when Symbol then rule
           end
         end
 
         def explicit_type?(type)
           type.is_a?(Symbol) && !META_TYPES.include?(type)
+        end
+
+        def numeric_type?(type)
+          OperatorRules.scalar_type?(type) || OperatorRules.vector_type?(type)
         end
       end
     end

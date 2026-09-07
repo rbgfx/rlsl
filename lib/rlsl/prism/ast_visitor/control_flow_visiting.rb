@@ -30,8 +30,8 @@ module RLSL
         def visit_if(node)
           condition = visit(node.predicate)
           hoisted_variables = hoist_branch_variables(node)
-          then_branch = visit(node.statements)
-          else_branch = node.subsequent ? visit(node.subsequent) : nil
+          then_branch = visit_with_scoped_vars(node.statements)
+          else_branch = node.subsequent ? visit_with_scoped_vars(node.subsequent) : nil
 
           IR::IfStatement.new(condition, then_branch, else_branch, hoisted_variables: hoisted_variables)
         end
@@ -43,8 +43,8 @@ module RLSL
         def visit_unless(node)
           condition = IR::UnaryOp.new("!", visit(node.predicate))
           hoisted_variables = hoist_branch_variables(node)
-          then_branch = visit(node.statements)
-          else_branch = node.else_clause ? visit(node.else_clause) : nil
+          then_branch = visit_with_scoped_vars(node.statements)
+          else_branch = node.else_clause ? visit_with_scoped_vars(node.else_clause) : nil
 
           IR::IfStatement.new(condition, then_branch, else_branch, hoisted_variables: hoisted_variables)
         end
@@ -65,8 +65,9 @@ module RLSL
 
         def visit_for(node)
           range = visit(node.collection)
-          body = visit(node.statements) || IR::Block.new
-          IR::ForLoop.new(node.index.name.to_sym, range[0], range[1], body, exclude_end: range[2])
+          variable = node.index.name.to_sym
+          body = visit_with_scoped_vars(node.statements, params: [variable]) || IR::Block.new
+          IR::ForLoop.new(variable, range[0], range[1], body, exclude_end: range[2])
         end
 
         def visit_call_with_block(node)
@@ -77,7 +78,7 @@ module RLSL
           count = visit(node.receiver)
           block_params = extract_block_params(node.block)
           var_name = block_params.first || next_implicit_loop_variable
-          block = visit(node.block) || IR::Block.new
+          block = visit_with_scoped_vars(node.block.body, params: [var_name]) || IR::Block.new
           IR::ForLoop.new(var_name, IR::Literal.new(0, :int), count, block)
         end
 

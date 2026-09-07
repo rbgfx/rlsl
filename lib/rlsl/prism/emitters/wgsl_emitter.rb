@@ -42,9 +42,12 @@ module RLSL
           return "var #{node.name}: #{type}" unless node.initializer
 
           if node.initializer.is_a?(IR::ArrayLiteral)
-            element_type = type_name(node.initializer.elements.first&.type || :float)
+            element_type_symbol = TypeShapes.element_type(node.type) || :float
+            element_type = type_name(element_type_symbol)
             size = node.initializer.elements.length
-            values = node.initializer.elements.map { |element| emit(element) }.join(", ")
+            values = node.initializer.elements.map do |element|
+              emit_typed_argument(element, element_type_symbol)
+            end.join(", ")
             return "var #{node.name}: array<#{element_type}, #{size}> = array<#{element_type}, #{size}>(#{values})"
           end
 
@@ -84,15 +87,28 @@ module RLSL
             args = node.args.map { |argument| emit_float_operand(argument) }
             return "rlsl_mod(#{args.join(', ')})"
           end
+          if node.name.to_sym == :atan && node.args.length == 2
+            return emit_named_call("atan2", node.args, expected_types: node.expected_arg_types)
+          end
 
           super
         end
 
         def emit_function_definition(node)
           name = node.name
-          params = node.params.map do |param|
-            param_type = type_name(node.param_types[param] || :float)
-            "#{param}: #{param_type}"
+          mutable_params = mutated_parameters(node)
+          initializers = []
+          params = node.params.flat_map do |param|
+            type = node.param_types[param] || :float
+            if type == :sampler2D
+              ["#{param}: #{type_name(type)}", "#{param}_sampler: sampler"]
+            elsif mutable_params.include?(param)
+              argument = next_temporary_name("param")
+              initializers << "#{indent}  var #{param}: #{type_name(type)} = #{argument};\n"
+              ["#{argument}: #{type_name(type)}"]
+            else
+              ["#{param}: #{type_name(type)}"]
+            end
           end.join(", ")
 
           if node.return_type.is_a?(Array)
@@ -101,12 +117,12 @@ module RLSL
               with_return_type(node.return_type) { emit_indented_block(node.body, needs_return: true) }
             end
 
-            "#{struct_def}fn #{name}(#{params}) -> #{name}_result {\n#{body}#{indent}}\n"
+            "#{struct_def}fn #{name}(#{params}) -> #{name}_result {\n#{initializers.join}#{body}#{indent}}\n"
           else
             return_type = type_name(node.return_type || :float)
             body = with_return_type(node.return_type) { emit_indented_block(node.body, needs_return: true) }
 
-            "fn #{name}(#{params}) -> #{return_type} {\n#{body}#{indent}}\n"
+            "fn #{name}(#{params}) -> #{return_type} {\n#{initializers.join}#{body}#{indent}}\n"
           end
         end
 
@@ -125,9 +141,12 @@ module RLSL
 
         def emit_global_decl(node)
           if node.initializer.is_a?(IR::ArrayLiteral)
-            element_type = type_name(node.element_type || node.initializer.elements.first&.type || :float)
+            element_type_symbol = node.element_type || TypeShapes.element_type(node.initializer.type) || :float
+            element_type = type_name(element_type_symbol)
             size = node.array_size || node.initializer.elements.length
-            values = node.initializer.elements.map { |element| emit(element) }.join(", ")
+            values = node.initializer.elements.map do |element|
+              emit_typed_argument(element, element_type_symbol)
+            end.join(", ")
             prefix = node.is_const ? "const" : "var<private>"
             return "#{prefix} #{node.name}: array<#{element_type}, #{size}> = array<#{element_type}, #{size}>(#{values})"
           end
@@ -155,6 +174,19 @@ module RLSL
           "textureSampleLevel(#{texture}, #{sampler}, #{uv}, #{lod})"
         end
 
+        def emit_named_call(name, args, receiver: nil, expected_types: [])
+          arguments = receiver ? [receiver, *args] : args
+          rendered = arguments.each_with_index.flat_map do |argument, index|
+            if expected_types[index] == :sampler2D
+              texture = emit(argument)
+              [texture, "#{texture}_sampler"]
+            else
+              [emit_typed_argument(argument, expected_types[index])]
+            end
+          end
+          "#{name}(#{rendered.join(', ')})"
+        end
+
         def emit_multiple_assignment_target(target, declaration)
           declaration ? "var #{target.name}: #{type_name(target.type || :float)}" : target.name.to_s
         end
@@ -169,6 +201,20 @@ module RLSL
             emit_typed_argument(element, expected_types[index])
           end.join(", ")
           "#{current_return_struct_name}(#{elements})"
+        end
+
+        private
+
+        def mutated_parameters(node)
+          parameters = node.params.to_set
+          IR::Traversal.each(node.body).each_with_object(Set.new) do |current, names|
+            case current
+            when IR::Assignment
+              names.add(current.target.name) if current.target.is_a?(IR::VarRef) && parameters.include?(current.target.name)
+            when IR::MultipleAssignment
+              current.targets.each { |target| names.add(target.name) if parameters.include?(target.name) }
+            end
+          end
         end
       end
     end

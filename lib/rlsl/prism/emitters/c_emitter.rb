@@ -106,6 +106,14 @@ module RLSL
           emit_vector_binary_op(node)
         end
 
+        def emit_unary_op(node)
+          if node.operator == "-" && vector_type?(node.operand.type)
+            return emit_named_call("#{node.operand.type}_mul_scalar", [node.operand, IR::Literal.new(-1.0, :float)])
+          end
+
+          super
+        end
+
         def emit_bool_literal(node)
           node.value ? "1" : "0"
         end

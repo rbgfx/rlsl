@@ -348,8 +348,9 @@ class IssueRegressionsTest < Test::Unit::TestCase
         blended = mix(a, b, 0.5)
         separation = distance(a, b)
         normal = cross(vec3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0))
+        negated = -normal
         angle = atan(1.0, 1.0)
-        vec3(product.x + blended.y + separation, normal.z, angle).zyx
+        vec3(product.x + blended.y + separation, negated.z, angle).zyx
       RUBY
       code = RLSL::CodeGenerator.new(:buffer_shader, {}, nil, -> { fragment }).generate
       compiler = RLSL::ShaderBuilder::NativeExtensionCompiler.new(
@@ -489,6 +490,103 @@ class IssueRegressionsTest < Test::Unit::TestCase
 
     assert_kind_of String, source
     assert_include source, "kernel void compute_shader"
+  end
+
+  test "nested unary minus and mixed numeric expressions preserve values" do
+    source = <<~RUBY
+      x = 0.75
+      y = - -x
+      root = sqrt(2)
+      blended = mix(0, 1, 0.5)
+      largest = max(1, 1.5)
+      chosen = false ? 1 : 2.5
+      vec3(y + root, blended, largest + chosen)
+    RUBY
+
+    code = @transpiler.transpile_source(source, :c)
+
+    assert_include code, "float y = -(-x)"
+    assert_include code, "float root = sqrtf((float)(2))"
+    assert_include code, "float blended = mix_f((float)(0), (float)(1), 0.5f)"
+    assert_include code, "float largest = fmaxf((float)(1), 1.5f)"
+    assert_include code, "float chosen = (0 ? (float)(1) : 2.5f)"
+  end
+
+  test "mixed numeric arrays use a common element type" do
+    source = "values = [1, 2.5]\nvec3(values[0], values[1], 0.0)"
+
+    assert_include @transpiler.transpile_source(source, :c),
+                   "float values[2] = {(float)(1), 2.5f}"
+    assert_include @transpiler.transpile_source(source, :wgsl),
+                   "array<f32, 2>(f32(1), 2.5)"
+
+    error = assert_raise(RLSL::Prism::SignatureError) do
+      @transpiler.compile_source("values = [true, 1.0]\nvec3(0.0)")
+    end
+    assert_include error.message, "Array elements have incompatible types"
+  end
+
+  test "branch declarations and loop binders follow their generated scopes" do
+    branch = @transpiler.transpile_source(
+      "if true\n  x = 1.0\nend\nx = 2.0\nvec3(x)",
+      :c
+    )
+    loop_code = @transpiler.transpile_source(
+      "for i in 0...4\n  i += 1\nend\nvec3(0.0)",
+      :c
+    )
+    collision = @transpiler.transpile_source(
+      "_rlsl_i0 = 0.25\n2.times { _rlsl_i0 }\nvec3(_rlsl_i0)",
+      :c
+    )
+
+    assert_include branch, "}\nfloat x = 2.0f"
+    assert_include loop_code, "i = i + (1)"
+    assert_include collision, "for (int _rlsl_i1 = 0"
+  end
+
+  test "C vector negation uses component-wise multiplication" do
+    code = @transpiler.transpile_source("v = vec3(0.25, 0.5, 0.75)\n-v", :c)
+
+    assert_include code, "vec3_mul_scalar(v, -1.0f)"
+    assert_not_include code, "return -v"
+  end
+
+  test "WGSL emits mutable locals casts and texture sampler parameters" do
+    signatures = {
+      bump: { returns: :float, params: { x: :float } },
+      sample_color: { returns: :vec4, params: { tex: :sampler2D, uv: :vec2 } }
+    }
+    transpiler = RLSL::Prism::Transpiler.new({ albedo: :sampler2D }, signatures)
+    helpers = transpiler.transpile_helpers_source(<<~RUBY, :wgsl, signatures)
+      def bump(x)
+        x = x + 1.0
+        x
+      end
+
+      def sample_color(tex, uv)
+        texture(tex, uv)
+      end
+    RUBY
+    fragment = transpiler.transpile_source(<<~RUBY, :wgsl)
+      a = 0.25
+      b = 0.75
+      a, b = [b, a]
+      x = 0.0
+      i = 1
+      x = i
+      angle = atan(0.5, 1.0)
+      sample_color(u.albedo, vec2(a + x + angle, b)).xyz + vec3(bump(x))
+    RUBY
+
+    assert_match(/fn bump\((_rlsl_param\d+): f32\).*var x: f32 = \1/m, helpers)
+    assert_include helpers, "tex: texture_2d<f32>, tex_sampler: sampler"
+    assert_include helpers, "textureSampleLevel(tex, tex_sampler"
+    assert_include fragment, "var a: f32"
+    assert_include fragment, "var b: f32"
+    assert_include fragment, "x = f32(i)"
+    assert_include fragment, "atan2(0.5, 1.0)"
+    assert_include fragment, "sample_color(albedo, albedo_sampler"
   end
 
   private

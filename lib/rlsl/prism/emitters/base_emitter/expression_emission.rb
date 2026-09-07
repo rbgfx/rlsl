@@ -11,7 +11,7 @@ module RLSL
 
             if node.initializer.is_a?(IR::ArrayLiteral)
               value = emit(node.initializer)
-              element_type = type_name(node.initializer.elements.first&.type || :float)
+              element_type = type_name(TypeShapes.element_type(node.type) || :float)
               return "#{element_type} #{node.name}[#{node.initializer.elements.length}] = #{value}"
             end
 
@@ -39,7 +39,9 @@ module RLSL
 
           def emit_unary_op(node)
             operand = emit(node.operand)
-            operand = "(#{operand})" if node.operand.is_a?(IR::BinaryOp) || node.operand.is_a?(IR::Ternary)
+            operand = "(#{operand})" if node.operand.is_a?(IR::BinaryOp) ||
+                                        node.operand.is_a?(IR::Ternary) ||
+                                        node.operand.is_a?(IR::UnaryOp)
             "#{node.operator}#{operand}"
           end
 
@@ -94,6 +96,10 @@ module RLSL
                       emit(node.index)
                     end
             "#{array}[#{index}]"
+          end
+
+          def emit_typed_argument(node, _expected_type)
+            emit(node)
           end
         end
       end

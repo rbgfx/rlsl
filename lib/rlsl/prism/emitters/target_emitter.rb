@@ -42,6 +42,16 @@ module RLSL
           "#{left} #{node.operator} #{right}"
         end
 
+        def emit_ternary(node)
+          then_expr = emit_typed_argument(node.then_expr, node.type)
+          else_expr = emit_typed_argument(node.else_expr, node.type)
+          "(#{emit(node.condition)} ? #{then_expr} : #{else_expr})"
+        end
+
+        def emit_assignment(node)
+          "#{emit(node.target)} = #{emit_typed_argument(node.value, node.target.type)}"
+        end
+
         def default_type_name
           profile.default_type_name
         end

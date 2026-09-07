@@ -75,6 +75,10 @@ module RLSL
           OperatorRules.scalar_type?(type)
         end
 
+        def common_type(types)
+          OperatorRules.common_type(types)
+        end
+
         def matrix_vector_result(matrix_type)
           OperatorRules.matrix_vector_result(matrix_type)
         end

@@ -33,7 +33,14 @@ module RLSL
           end
 
           def emit_array_literal(node, for_static_init: false)
-            elements = node.elements.map { |elem| emit_for_static_init(elem, for_static_init) }.join(", ")
+            element_type = TypeShapes.element_type(node.type)
+            elements = node.elements.map do |element|
+              if for_static_init
+                emit_for_static_init(element, true)
+              else
+                emit_typed_argument(element, element_type)
+              end
+            end.join(", ")
             "{#{elements}}"
           end
 

@@ -12,7 +12,12 @@ module RLSL
       end
 
       def resolve_array_literal(node)
-        element_type = node.elements.first&.type || :float
+        element_types = node.elements.map(&:type)
+        element_type = element_types.empty? ? :float : Builtins.common_type(element_types)
+        unless element_type
+          raise SignatureError, "Array elements have incompatible types: #{element_types.uniq.join(', ')}"
+        end
+
         TypeShapes.array(element_type, node.elements.length)
       end
 
@@ -27,8 +32,7 @@ module RLSL
       def resolve_global_decl(node)
         if node.initializer.is_a?(IR::ArrayLiteral)
           node.array_size ||= node.initializer.elements.length
-          first_elem = node.initializer.elements.first
-          node.element_type ||= first_elem&.type || :float
+          node.element_type ||= TypeShapes.element_type(node.initializer.type)
           return TypeShapes.array(node.element_type, node.array_size)
         end
 

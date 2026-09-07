@@ -46,6 +46,7 @@ module RLSL
         @parameter_types = { frag_coord: :vec2, resolution: :vec2, u: :uniforms }.merge(positional_types)
         @parameter_bindings = { frag_coord: :frag_coord, resolution: :resolution, u: :u }
         @implicit_loop_index = 0
+        @source_identifiers = Set.new
         params.each_with_index do |name, index|
           @parameter_bindings[name.to_sym] = %i[frag_coord resolution u][index]
         end
@@ -63,6 +64,9 @@ module RLSL
         if NodeTraversal.depth_exceeds?(program, MAX_AST_DEPTH)
           raise UnsupportedSyntaxError, "Shader syntax nesting exceeds #{MAX_AST_DEPTH} nodes"
         end
+        @source_identifiers = NodeTraversal.each(program).filter_map do |node|
+          node.name.to_sym if node.respond_to?(:name)
+        end.to_set
 
         visit(program)
       end
@@ -155,9 +159,11 @@ module RLSL
       end
 
       def next_implicit_loop_variable
-        name = :"_rlsl_i#{@implicit_loop_index}"
-        @implicit_loop_index += 1
-        name
+        loop do
+          name = :"_rlsl_i#{@implicit_loop_index}"
+          @implicit_loop_index += 1
+          return name unless @source_identifiers.include?(name)
+        end
       end
 
       def attach_source_location(result, prism_location)

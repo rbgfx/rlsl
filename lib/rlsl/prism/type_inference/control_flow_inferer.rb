@@ -31,7 +31,11 @@ module RLSL
         @infer.call(node.condition)
         @infer.call(node.then_expr)
         @infer.call(node.else_expr)
-        node.type = node.then_expr.type
+        node.type = Builtins.common_type([node.then_expr.type, node.else_expr.type])
+        unless node.type
+          raise SignatureError,
+                "Conditional branches have incompatible types: #{node.then_expr.type} and #{node.else_expr.type}"
+        end
         node
       end
 

@@ -19,6 +19,13 @@ module RLSL
       if @uniforms.key?(normalized_name)
         raise ArgumentError, "Uniform #{normalized_name.inspect} is already defined"
       end
+      generated_sampler_names = @uniforms.filter_map do |uniform_name, uniform_type|
+        :"#{uniform_name}_sampler" if uniform_type == :sampler2D
+      end
+      if generated_sampler_names.include?(normalized_name) ||
+         (type == :sampler2D && @uniforms.key?(:"#{normalized_name}_sampler"))
+        raise ArgumentError, "Uniform #{normalized_name.inspect} conflicts with a generated sampler name"
+      end
 
       @uniforms[normalized_name] = type
     end

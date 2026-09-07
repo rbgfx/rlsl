@@ -65,4 +65,16 @@ class UniformContextTest < Test::Unit::TestCase
     error = assert_raise(ArgumentError) { ctx.int("time") }
     assert_include error.message, "already defined"
   end
+
+  test "rejects names used by generated texture samplers in either order" do
+    texture_first = RLSL::UniformContext.new
+    texture_first.sampler2D(:tex)
+    error = assert_raise(ArgumentError) { texture_first.float(:tex_sampler) }
+    assert_include error.message, "generated sampler name"
+
+    sampler_first = RLSL::UniformContext.new
+    sampler_first.float(:tex_sampler)
+    error = assert_raise(ArgumentError) { sampler_first.sampler2D(:tex) }
+    assert_include error.message, "generated sampler name"
+  end
 end

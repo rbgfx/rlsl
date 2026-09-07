@@ -12,12 +12,18 @@ class TargetCompilationTest < Test::Unit::TestCase
     with_shader_file("shader.comp", generated_glsl) do |path, directory|
       assert_command_success("glslangValidator", "-V", path, "-o", File.join(directory, "shader.spv"))
     end
+    with_shader_file("regressions.comp", regression_builder.build_glsl_shader) do |path, directory|
+      assert_command_success("glslangValidator", "-V", path, "-o", File.join(directory, "regressions.spv"))
+    end
   end
 
   test "generated WGSL passes Naga validation" do
     require_command!("naga", "REQUIRE_WGSL_COMPILER")
 
     with_shader_file("shader.wgsl", generated_wgsl) do |path|
+      assert_command_success("naga", path)
+    end
+    with_shader_file("regressions.wgsl", regression_builder.build_wgsl_shader) do |path|
       assert_command_success("naga", path)
     end
   end
@@ -56,6 +62,9 @@ class TargetCompilationTest < Test::Unit::TestCase
     end
     with_shader_file("tuple.metal", tuple_builder.build_metal_shader.msl_source) do |path, directory|
       assert_command_success("xcrun", "metal", "-c", path, "-o", File.join(directory, "tuple.air"))
+    end
+    with_shader_file("regressions.metal", regression_builder.build_metal_shader.msl_source) do |path, directory|
+      assert_command_success("xcrun", "metal", "-c", path, "-o", File.join(directory, "regressions.air"))
     end
   end
 
@@ -135,6 +144,48 @@ class TargetCompilationTest < Test::Unit::TestCase
       scaled = vec3(0.25) * hits
       wrapped = -1.0 % 2 + mod(-1, 2)
       vec3(a, b, hits / 3 + wrapped + mixed + converted) + scaled
+    RUBY
+    builder
+  end
+
+  def regression_builder
+    builder = RLSL::ShaderBuilder.new(:mechanism_regressions)
+    builder.uniforms { sampler2D :albedo }
+    builder.functions do
+      define :bump, returns: :float, params: { x: :float }
+      define :sample_color, returns: :vec4, params: { tex: :sampler2D, uv: :vec2 }
+    end
+    builder.helpers_source(<<~RUBY)
+      def bump(x)
+        x = x + 1.0
+        x
+      end
+
+      def sample_color(tex, uv)
+        texture(tex, uv)
+      end
+    RUBY
+    builder.fragment_source(<<~RUBY)
+      root = sqrt(2)
+      blended = mix(0, 1, 0.5)
+      largest = max(1, 1.5)
+      values = [1, 2.5]
+      a = 0.25
+      b = 0.75
+      a, b = [b, a]
+      x = 0.0
+      i = 1
+      x = i
+      angle = atan(0.5, 1.0)
+      if true
+        scoped = 1.0
+      end
+      scoped = 2.0
+      _rlsl_i0 = 0.25
+      total = 0.0
+      2.times { total = total + _rlsl_i0 }
+      sampled = sample_color(u.albedo, frag_coord / resolution).xyz
+      sampled + -vec3(root + blended + largest + values[1] + a + b + x + angle + scoped + total + bump(x))
     RUBY
     builder
   end
