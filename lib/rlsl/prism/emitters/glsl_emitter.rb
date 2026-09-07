@@ -71,6 +71,11 @@ module RLSL
 
           super
         end
+
+        def emit_tuple_value(node)
+          elements = node.elements.map { |element| emit(element) }.join(", ")
+          "#{current_return_struct_name}(#{elements})"
+        end
       end
     end
   end

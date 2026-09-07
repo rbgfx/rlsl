@@ -52,7 +52,7 @@ module RLSL
             min: "fminf",
             max: "fmaxf",
             fract: "fract",
-            mod: "fmodf",
+            mod: "rlsl_mod",
             clamp: "clamp_f",
             mix: "mix_f",
             smoothstep: "smoothstep",
@@ -101,6 +101,24 @@ module RLSL
           node.value ? "1" : "0"
         end
 
+        def emit_field_access(node)
+          return super if node.receiver.type == :uniforms
+
+          field = node.field.to_s
+          if Builtins.single_component_field?(field)
+            component = Builtins::SWIZZLE_COMPONENTS.fetch(field)
+            return "#{emit(node.receiver)}.#{%w[x y z w].fetch(component)}"
+          end
+          return super unless Builtins.swizzle?(field)
+
+          indices = field.each_char.map { |component| Builtins::SWIZZLE_COMPONENTS.fetch(component) }
+          "#{node.receiver.type}_swizzle#{indices.length}(#{emit(node.receiver)}, #{indices.join(', ')})"
+        end
+
+        def emit_integer_division(node)
+          "(float)(#{emit(node.left)}) / (float)(#{emit(node.right)})"
+        end
+
         private
 
         def vector_math_call?(name, node)
@@ -120,7 +138,7 @@ module RLSL
         end
 
         def emit_float_modulo(node)
-          emit_named_call("fmodf", [node.left, node.right])
+          emit_named_call("rlsl_mod", [node.left, node.right])
         end
 
         def emit_vector_binary_op(node)
@@ -145,23 +163,23 @@ module RLSL
 
         def emit_c_vector_constructor(node)
           size = { vec2: 2, vec3: 3, vec4: 4 }.fetch(node.name.to_sym)
-          components = node.args.flat_map do |argument|
-            if vector_type?(argument.type)
-              %w[x y z w].first({ vec2: 2, vec3: 3, vec4: 4 }.fetch(argument.type)).map do |field|
-                "#{emit(argument)}.#{field}"
-              end
-            else
-              emit(argument)
-            end
-          end
-          components *= size if components.length == 1
+          component_count = node.args.sum { |argument| vector_size(argument.type) || 1 }
+          component_count = size if node.args.length == 1 && !vector_type?(node.args.first.type)
 
-          unless components.length == size
+          unless component_count == size
             raise TargetCapabilityError,
-                  "#{node.name} constructor produces #{components.length} components on C, expected #{size}"
+                  "#{node.name} constructor produces #{component_count} components on C, expected #{size}"
           end
 
-          "#{node.name}_new(#{components.join(', ')})"
+          return "#{node.name}_splat(#{emit(node.args.first)})" if node.args.length == 1 && !vector_type?(node.args.first.type)
+          return emit_named_call("#{node.name}_new", node.args) unless node.args.any? { |argument| vector_type?(argument.type) }
+
+          signature = node.args.map { |argument| vector_type?(argument.type) ? argument.type : :float }.join("_")
+          emit_named_call("#{node.name}_from_#{signature}", node.args)
+        end
+
+        def vector_size(type)
+          { vec2: 2, vec3: 3, vec4: 4 }[type]
         end
       end
     end

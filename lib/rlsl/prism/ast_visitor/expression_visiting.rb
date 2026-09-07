@@ -63,10 +63,10 @@ module RLSL
           if parameter_reference_call?(method_name, receiver, args)
             return IR::VarRef.new(emitted_parameter_name(method_name), infer_param_type(method_name))
           end
+          return IR::UnaryOp.new("-", receiver) if method_name == "-@" && receiver
+          return IR::UnaryOp.new("!", receiver) if method_name == "!" && receiver && args.empty?
           return visit_receiver_call(method_name, receiver) if receiver_without_arguments?(node, receiver, args)
           return IR::BinaryOp.new(method_name, receiver, args.first) if binary_operator_call?(method_name, receiver, args)
-          return IR::UnaryOp.new("-", receiver) if method_name == "-@" && receiver
-          return IR::UnaryOp.new("!", args.first) if method_name == "!" && args.length == 1
           return IR::ArrayIndex.new(receiver, args.first) if method_name == "[]" && receiver && args.length == 1
 
           IR::FuncCall.new(method_name.to_sym, args, receiver)
@@ -158,8 +158,6 @@ module RLSL
 
         def visit_receiver_call(method_name, receiver)
           return receiver if method_name == "freeze"
-          return IR::FieldAccess.new(receiver, method_name, :float) if Builtins.single_component_field?(method_name)
-          return IR::Swizzle.new(receiver, method_name, Builtins.swizzle_type(method_name)) if Builtins.swizzle?(method_name)
 
           IR::FieldAccess.new(receiver, method_name)
         end

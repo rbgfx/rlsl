@@ -134,6 +134,10 @@ module RLSL
         @scope_context.parameter?(name)
       end
 
+      def fragment_parameter_reference?(name)
+        @scope_context.root_parameter?(name)
+      end
+
       def known_variable?(name)
         @scope_context.known_variable?(name)
       end

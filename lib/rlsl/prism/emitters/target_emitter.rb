@@ -31,6 +31,8 @@ module RLSL
         end
 
         def emit_binary_op(node)
+          return emit_integer_division(node) if integer_division?(node)
+
           resolved_binary_op = emit_profile_binary_op(node)
           return resolved_binary_op if resolved_binary_op
 
@@ -54,6 +56,15 @@ module RLSL
           rendered_args << emit(receiver) if receiver
           rendered_args.concat(args.map { |arg| emit(arg) })
           "#{name}(#{rendered_args.join(', ')})"
+        end
+
+        def integer_division?(node)
+          node.operator == "/" && node.left.type == :int && node.right.type == :int && node.type == :float
+        end
+
+        def emit_integer_division(node)
+          type = type_name(:float)
+          "#{type}(#{emit(node.left)}) / #{type}(#{emit(node.right)})"
         end
 
         def emit_profile_call(node)

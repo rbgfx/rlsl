@@ -42,7 +42,9 @@ module RLSL
 
           #{helpers}
 
-          fn shader_fragment(frag_coord: vec2<f32>, resolution: vec2<f32>) -> vec3<f32> {
+          fn shader_fragment(_rlsl_frag_coord: vec2<f32>, _rlsl_resolution: vec2<f32>) -> vec3<f32> {
+              var frag_coord = _rlsl_frag_coord;
+              var resolution = _rlsl_resolution;
           #{indent_source(fragment, 4)}
           }
 

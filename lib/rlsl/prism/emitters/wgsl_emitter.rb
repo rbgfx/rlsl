@@ -60,7 +60,10 @@ module RLSL
           body = emit_indented_block(node.body)
 
           comparison = node.exclude_end ? "<" : "<="
-          "for (var #{var}: i32 = #{start_val}; #{var} #{comparison} #{end_val}; #{var}++) {\n#{body}#{indent}}"
+          return "for (var #{var}: i32 = #{start_val}; #{var} #{comparison} #{end_val}; #{var}++) {\n#{body}#{indent}}" if node.range_end.is_a?(IR::Literal)
+
+          bound = next_temporary_name("end")
+          "let #{bound}: i32 = #{end_val};\n#{indent}for (var #{var}: i32 = #{start_val}; #{var} #{comparison} #{bound}; #{var}++) {\n#{body}#{indent}}"
         end
 
         def emit_ternary(_node)
@@ -133,6 +136,15 @@ module RLSL
           uv = emit(node.args[1])
           lod = node.args[2] ? emit(node.args[2]) : "0.0"
           "textureSampleLevel(#{texture}, #{sampler}, #{uv}, #{lod})"
+        end
+
+        def emit_multiple_assignment_target(target, declaration)
+          declaration ? "var #{target.name}: #{type_name(target.type || :float)}" : target.name.to_s
+        end
+
+        def emit_tuple_value(node)
+          elements = node.elements.map { |element| emit(element) }.join(", ")
+          "#{current_return_struct_name}(#{elements})"
         end
       end
     end

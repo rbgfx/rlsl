@@ -39,12 +39,51 @@ class IssueRegressionsTest < Test::Unit::TestCase
     assert_include unless_code, "if (!(a > 0.0f && a < 2.0f))"
   end
 
+  test "unary operators are emitted before member access" do
+    minus = @transpiler.transpile_source("x = 1.0\nvec3(-x)", :glsl)
+    negate = @transpiler.transpile_source("flag = true\nif !flag\nvec3(0.0)\nelse\nvec3(1.0)\nend", :glsl)
+
+    assert_include minus, "vec3(-x)"
+    assert_include negate, "if (!flag)"
+  end
+
+  test "uniform fields take precedence over swizzle names" do
+    transpiler = RLSL::Prism::Transpiler.new({ x: :float, rgb: :vec3 })
+
+    assert_include transpiler.transpile_source("vec3(u.x)", :glsl), "u.x"
+    assert_include transpiler.transpile_source("u.rgb", :glsl), "u.rgb"
+  end
+
+  test "fragment aliases stay canonical on writes and helper parameter types stay local" do
+    fragment = @transpiler.transpile_source(
+      "|coord, size, data|\ncoord = coord / size\ncoord += size\nvec3(coord.x, coord.y, 0.0)",
+      :glsl
+    )
+    helper = @transpiler.transpile_helpers_source(
+      "def identity(resolution)\nvalue = resolution\nvalue\nend",
+      :c,
+      { identity: { returns: :float, params: { resolution: :float } } }
+    )
+
+    assert_include fragment, "frag_coord = frag_coord / resolution"
+    assert_include fragment, "frag_coord = frag_coord + (resolution)"
+    assert_include helper, "float value = resolution"
+  end
+
   test "inclusive and exclusive ranges use different comparisons" do
     inclusive = @transpiler.transpile_source("for i in 0..5\nend\nvec3(1.0)", :c)
     exclusive = @transpiler.transpile_source("for i in 0...5\nend\nvec3(1.0)", :c)
 
     assert_include inclusive, "i <= 5"
     assert_include exclusive, "i < 5"
+  end
+
+  test "loop bounds are captured before the body mutates them" do
+    source = "n = 3\nhits = 0\nn.times do |i|\nn -= 1\nhits += 1\nend\nvec3(hits)"
+
+    assert_match(/int (_rlsl_end\d+) = n;\nfor \(int i = 0; i < \1;/, @transpiler.transpile_source(source, :c))
+    assert_match(/let (_rlsl_end\d+): i32 = n;\nfor \(var i: i32 = 0; i < \1;/,
+                 @transpiler.transpile_source(source, :wgsl))
   end
 
   test "unsupported blocks are diagnosed instead of discarded" do
@@ -96,6 +135,59 @@ class IssueRegressionsTest < Test::Unit::TestCase
       @transpiler.compile_source("v = vec2(1.0, 2.0)\nv.z")
     end
     assert_include error.message, "Invalid component"
+  end
+
+  test "C lowers component aliases and swizzles to real struct access" do
+    code = @transpiler.transpile_source("v = vec3(0.1, 0.2, 0.3)\nvec3(v.r) + v.zyx", :c)
+
+    assert_include code, "v.x"
+    assert_include code, "vec3_swizzle3(v, 2, 1, 0)"
+    assert_not_include code, "v.r"
+    assert_not_include code, "v.zyx"
+  end
+
+  test "integer division is converted to float and C modulo follows floor semantics" do
+    source = "a = 1\nb = 2\nratio = a / b\nvec3(ratio)"
+
+    assert_include @transpiler.transpile_source(source, :c), "(float)(a) / (float)(b)"
+    assert_include @transpiler.transpile_source(source, :wgsl), "f32(a) / f32(b)"
+    assert_include @transpiler.transpile_source("vec3(-1.0 % 2.0)", :c), "rlsl_mod(-1.0f, 2.0f)"
+  end
+
+  test "multiple assignment distinguishes declarations from reassignments on C and WGSL" do
+    source = "pair = [0.2, 0.3]\na, b = pair\na, b = pair\nvec3(a, b, 0.0)"
+    c = @transpiler.transpile_source(source, :c)
+    wgsl = @transpiler.transpile_source(source, :wgsl)
+
+    assert_equal 1, c.scan("float a =").length
+    assert_include c, "\na = pair[0]"
+    assert_include wgsl, "var a: f32 = pair[0]"
+    assert_include wgsl, "\na = pair[0]"
+  end
+
+  test "tuple helpers emit valid implicit and explicit returns and validate their types" do
+    signatures = { pair: { returns: %i[float float], params: { value: :float } } }
+    implicit = @transpiler.transpile_helpers_source("def pair(value)\n[value, value]\nend", :c, signatures)
+    explicit = @transpiler.transpile_helpers_source("def pair(value)\nreturn [value, value]\nend", :wgsl, signatures)
+
+    assert_include implicit, "return (pair_result){value, value}"
+    assert_include explicit, "return pair_result(value, value)"
+    error = assert_raise(RLSL::Prism::SignatureError) do
+      @transpiler.transpile_helpers_source(
+        "def bad_color\n0.5\nend",
+        :c,
+        { bad_color: { returns: :vec3, params: {} } }
+      )
+    end
+    assert_include error.message, "returns :float, expected :vec3"
+  end
+
+  test "C vector splats evaluate their expression once" do
+    transpiler = RLSL::Prism::Transpiler.new({}, { next_value: { returns: :float, params: {} } })
+    code = transpiler.transpile_source("vec3(next_value())", :c)
+
+    assert_equal 1, code.scan("next_value()").length
+    assert_include code, "vec3_splat(next_value())"
   end
 
   test "vector size mismatches are rejected" do
@@ -216,7 +308,7 @@ class IssueRegressionsTest < Test::Unit::TestCase
     assert_include code, "vec2_scalar_mul"
     assert_include code, "mix_v2"
     assert_include code, "atan2f"
-    assert_include code, "vec3_new("
+    assert_include code, "vec3_splat("
   end
 
   test "C rejects unavailable matrix constructors before compilation" do
@@ -257,7 +349,7 @@ class IssueRegressionsTest < Test::Unit::TestCase
         separation = distance(a, b)
         normal = cross(vec3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0))
         angle = atan(1.0, 1.0)
-        vec3(product.x + blended.y + separation, normal.z, angle)
+        vec3(product.x + blended.y + separation, normal.z, angle).zyx
       RUBY
       code = RLSL::CodeGenerator.new(:buffer_shader, {}, nil, -> { fragment }).generate
       compiler = RLSL::ShaderBuilder::NativeExtensionCompiler.new(
@@ -273,7 +365,7 @@ class IssueRegressionsTest < Test::Unit::TestCase
         extension_name: extension_name
       ).generate
       artifact = compiler.build(code, ext_name: extension_name)
-      assert_native_buffer_contract(artifact.file)
+      assert_native_buffer_contract(artifact.file, artifact.ext_name)
     end
   end
 
@@ -287,6 +379,15 @@ class IssueRegressionsTest < Test::Unit::TestCase
     values = names.to_h { |name| [name, 1.0] }
     oversized = RLSL::MSL::UniformBufferPacker.new(:oversized, types, names)
     assert_raise(ArgumentError) { oversized.pack(1, 1, values) }
+  end
+
+  test "integer uniforms reject values outside signed 32-bit range" do
+    packer = RLSL::MSL::UniformBufferPacker.new(:packed, { frame: :int }, [:frame])
+
+    assert_raise(RLSL::UniformValueError) { packer.pack(1, 1, frame: 2**31) }
+    assert_raise(RLSL::UniformValueError) { packer.pack(1, 1, frame: -2**31 - 1) }
+    assert_nothing_raised { packer.pack(1, 1, frame: -2**31) }
+    assert_nothing_raised { packer.pack(1, 1, frame: 2**31 - 1) }
   end
 
   test "fragment parameter types are positional and names emit canonically" do
@@ -392,21 +493,22 @@ class IssueRegressionsTest < Test::Unit::TestCase
 
   private
 
-  def assert_native_buffer_contract(extension_file)
+  def assert_native_buffer_contract(extension_file, extension_name)
     script = <<~'RUBY'
       require ARGV.fetch(0)
+      renderer = RLSL::CompiledShaders.method("#{ARGV.fetch(1)}_render")
 
       begin
-        RLSL::CompiledShaders.buffer_shader_render("abc".b, 1, 1)
+        renderer.call("abc".b, 1, 1)
       rescue ArgumentError
         # Expected: the renderer must reject a buffer shorter than four bytes.
       else
         abort "short buffer was accepted"
       end
 
-      RLSL::CompiledShaders.buffer_shader_render("abcd".b, 1, 1)
+      renderer.call("abcd".b, 1, 1)
     RUBY
-    output, status = Open3.capture2e(RbConfig.ruby, "-e", script, extension_file)
+    output, status = Open3.capture2e(RbConfig.ruby, "-e", script, extension_file, extension_name)
 
     assert status.success?, output
   end

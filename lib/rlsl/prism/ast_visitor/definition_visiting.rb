@@ -20,9 +20,10 @@ module RLSL
         def visit_local_variable_write(node)
           name = node.name.to_sym
           value = normalize_expression(visit(node.value))
+          emitted_name = parameter_reference?(name) ? emitted_parameter_name(name) : name
 
           if known_variable?(name)
-            IR::Assignment.new(IR::VarRef.new(name), value)
+            IR::Assignment.new(IR::VarRef.new(emitted_name), value)
           else
             declare_variable(name)
             IR::VarDecl.new(name, value)
@@ -37,15 +38,17 @@ module RLSL
           unless known_variable?(name)
             raise UnsupportedSyntaxError, "Operator assignment requires an initialized variable: #{name}"
           end
-          target = IR::VarRef.new(name)
-          expr = IR::BinaryOp.new(operator, IR::VarRef.new(name), IR::Parenthesized.new(value))
+          emitted_name = parameter_reference?(name) ? emitted_parameter_name(name) : name
+          target = IR::VarRef.new(emitted_name)
+          expr = IR::BinaryOp.new(operator, IR::VarRef.new(emitted_name), IR::Parenthesized.new(value))
           IR::Assignment.new(target, expr)
         end
 
         def visit_local_variable_read(node)
           name = node.name.to_sym
           emitted_name = parameter_reference?(name) ? emitted_parameter_name(name) : name
-          IR::VarRef.new(emitted_name, infer_param_type(name))
+          type = infer_param_type(name) if fragment_parameter_reference?(name)
+          IR::VarRef.new(emitted_name, type)
         end
 
         def visit_def(node)
@@ -67,13 +70,15 @@ module RLSL
             raise UnsupportedSyntaxError, "Splat multiple assignment is not supported"
           end
 
+          declarations = []
           targets = node.lefts.map do |target|
             name = target.name.to_sym
-            declare_variable(name)
+            declarations << !known_variable?(name)
+            declare_variable(name) if declarations.last
             IR::VarRef.new(name)
           end
 
-          IR::MultipleAssignment.new(targets, visit(node.value))
+          IR::MultipleAssignment.new(targets, visit(node.value), declarations: declarations)
         end
 
         def visit_local_variable_target(node)

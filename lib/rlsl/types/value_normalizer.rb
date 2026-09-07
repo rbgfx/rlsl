@@ -23,7 +23,7 @@ module RLSL
         when :float
           Float(value)
         when :int
-          Integer(value)
+          normalize_int(value, name: name, shader_name: shader_name)
         when :bool
           normalize_bool(value, name: name, shader_name: shader_name)
         when :vector
@@ -43,6 +43,13 @@ module RLSL
         return true if value == 1
 
         raise UniformValueError, invalid_uniform_message(name, :bool, value, shader_name)
+      end
+
+      def normalize_int(value, name:, shader_name: nil)
+        integer = Integer(value)
+        return integer if (-2**31...2**31).cover?(integer)
+
+        raise UniformValueError, invalid_uniform_message(name, :int, value, shader_name)
       end
 
       def normalize_vector(value, vector_size, name:, shader_name: nil)

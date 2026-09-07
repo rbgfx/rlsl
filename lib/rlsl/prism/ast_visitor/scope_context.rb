@@ -21,6 +21,10 @@ module RLSL
           @scopes.reverse_each.any? { |scope| scope.params.include?(name.to_sym) }
         end
 
+        def root_parameter?(name)
+          @scopes.first.params.include?(name.to_sym)
+        end
+
         def declared?(name)
           @scopes.reverse_each.any? { |scope| scope.declared_vars.include?(name.to_sym) }
         end

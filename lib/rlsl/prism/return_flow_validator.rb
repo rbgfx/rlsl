@@ -21,6 +21,7 @@ module RLSL
         IR::Ternary,
         IR::Constant,
         IR::Parenthesized,
+        IR::ArrayLiteral,
         IR::ArrayIndex
       ].freeze
 

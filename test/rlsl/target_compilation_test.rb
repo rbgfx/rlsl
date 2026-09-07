@@ -22,6 +22,16 @@ class TargetCompilationTest < Test::Unit::TestCase
     end
   end
 
+  test "WGSL with reassigned fragment aliases passes Naga validation" do
+    require_command!("naga", "REQUIRE_WGSL_COMPILER")
+
+    builder = RLSL::ShaderBuilder.new(:mutable_fragment_parameter)
+    builder.fragment_source("|coord, size, data|\ncoord = coord / size\nvec3(coord.x, coord.y, 0.0)")
+    with_shader_file("mutable-parameter.wgsl", builder.build_wgsl_shader) do |path|
+      assert_command_success("naga", path)
+    end
+  end
+
   test "generated MSL passes the Metal compiler when installed" do
     unless metal_compiler_available?
       flunk("Metal compiler is required") if ENV["REQUIRE_MSL_COMPILER"] == "1"

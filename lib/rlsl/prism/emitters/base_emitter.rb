@@ -67,6 +67,7 @@ module RLSL
           @indent_level = 0
           @return_context_stack = [false]
           @return_struct_name_stack = []
+          @temporary_index = 0
         end
 
         def emit(node, needs_return: false)
@@ -136,6 +137,12 @@ module RLSL
 
         def return_context?
           @return_context_stack.last
+        end
+
+        def next_temporary_name(prefix)
+          name = :"_rlsl_#{prefix}#{@temporary_index}"
+          @temporary_index += 1
+          name
         end
       end
     end

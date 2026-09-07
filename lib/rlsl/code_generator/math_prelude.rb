@@ -10,6 +10,42 @@ module RLSL
           static inline vec2 vec2_new(float x, float y) { return (vec2){x, y}; }
           static inline vec3 vec3_new(float x, float y, float z) { return (vec3){x, y, z}; }
           static inline vec4 vec4_new(float x, float y, float z, float w) { return (vec4){x, y, z, w}; }
+          static inline vec2 vec2_splat(float x) { return vec2_new(x, x); }
+          static inline vec3 vec3_splat(float x) { return vec3_new(x, x, x); }
+          static inline vec4 vec4_splat(float x) { return vec4_new(x, x, x, x); }
+
+          static inline vec2 vec2_from_vec2(vec2 v) { return v; }
+          static inline vec3 vec3_from_vec3(vec3 v) { return v; }
+          static inline vec4 vec4_from_vec4(vec4 v) { return v; }
+          static inline vec3 vec3_from_vec2_float(vec2 v, float z) { return vec3_new(v.x, v.y, z); }
+          static inline vec3 vec3_from_float_vec2(float x, vec2 v) { return vec3_new(x, v.x, v.y); }
+          static inline vec4 vec4_from_vec3_float(vec3 v, float w) { return vec4_new(v.x, v.y, v.z, w); }
+          static inline vec4 vec4_from_float_vec3(float x, vec3 v) { return vec4_new(x, v.x, v.y, v.z); }
+          static inline vec4 vec4_from_vec2_vec2(vec2 a, vec2 b) { return vec4_new(a.x, a.y, b.x, b.y); }
+          static inline vec4 vec4_from_vec2_float_float(vec2 v, float z, float w) { return vec4_new(v.x, v.y, z, w); }
+          static inline vec4 vec4_from_float_vec2_float(float x, vec2 v, float w) { return vec4_new(x, v.x, v.y, w); }
+          static inline vec4 vec4_from_float_float_vec2(float x, float y, vec2 v) { return vec4_new(x, y, v.x, v.y); }
+
+          static inline float vec2_component(vec2 v, int i) { return i == 0 ? v.x : v.y; }
+          static inline float vec3_component(vec3 v, int i) { return i == 0 ? v.x : (i == 1 ? v.y : v.z); }
+          static inline float vec4_component(vec4 v, int i) {
+            return i == 0 ? v.x : (i == 1 ? v.y : (i == 2 ? v.z : v.w));
+          }
+
+          #define RLSL_DEFINE_SWIZZLES(type) \
+            static inline vec2 type##_swizzle2(type v, int a, int b) { \
+              return vec2_new(type##_component(v, a), type##_component(v, b)); \
+            } \
+            static inline vec3 type##_swizzle3(type v, int a, int b, int c) { \
+              return vec3_new(type##_component(v, a), type##_component(v, b), type##_component(v, c)); \
+            } \
+            static inline vec4 type##_swizzle4(type v, int a, int b, int c, int d) { \
+              return vec4_new(type##_component(v, a), type##_component(v, b), type##_component(v, c), type##_component(v, d)); \
+            }
+          RLSL_DEFINE_SWIZZLES(vec2)
+          RLSL_DEFINE_SWIZZLES(vec3)
+          RLSL_DEFINE_SWIZZLES(vec4)
+          #undef RLSL_DEFINE_SWIZZLES
 
           static inline vec2 vec2_add(vec2 a, vec2 b) { return (vec2){a.x + b.x, a.y + b.y}; }
           static inline vec3 vec3_add(vec3 a, vec3 b) { return (vec3){a.x + b.x, a.y + b.y, a.z + b.z}; }
@@ -80,6 +116,7 @@ module RLSL
           static inline vec4 vec4_normalize(vec4 v) { float l = vec4_length(v); return l > 0 ? vec4_div_scalar(v, l) : v; }
 
           static inline float fract(float x) { return x - floorf(x); }
+          static inline float rlsl_mod(float x, float y) { return x - y * floorf(x / y); }
           static inline float sign_f(float x) { return (x > 0.0f) - (x < 0.0f); }
           static inline float step_f(float edge, float x) { return x < edge ? 0.0f : 1.0f; }
           static inline float mix_f(float a, float b, float t) { return a + (b - a) * t; }

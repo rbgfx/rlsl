@@ -8,6 +8,13 @@ module RLSL
       end
 
       def resolve(node)
+        if node.receiver.type == :uniforms
+          type = @uniforms[node.field.to_sym]
+          return type if type
+
+          raise SignatureError, "Unknown uniform field #{node.field.inspect}"
+        end
+
         if Builtins.single_component_field?(node.field)
           unless Builtins.valid_swizzle_for_type?(node.field, node.receiver.type)
             raise SignatureError, "Invalid component #{node.field.inspect} for #{node.receiver.type || :unknown}"
@@ -16,11 +23,12 @@ module RLSL
           return :float
         end
 
-        if node.receiver.type == :uniforms
-          type = @uniforms[node.field.to_sym]
-          return type if type
+        if Builtins.swizzle?(node.field)
+          unless Builtins.valid_swizzle_for_type?(node.field, node.receiver.type)
+            raise SignatureError, "Invalid swizzle #{node.field.inspect} for #{node.receiver.type || :unknown}"
+          end
 
-          raise SignatureError, "Unknown uniform field #{node.field.inspect}"
+          return Builtins.swizzle_type(node.field)
         end
 
         raise SignatureError, "Unknown field #{node.field.inspect} for #{node.receiver.type || :unknown}"

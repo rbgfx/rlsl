@@ -69,10 +69,74 @@ module RLSL
           @infer.call(node.body)
 
           node.return_type ||= node.body&.type
+          validate_return_types!(node) if node.return_type
           node.type = node.return_type
         end
 
         node
+      end
+
+      private
+
+      def validate_return_types!(function)
+        expressions = explicit_return_expressions(function.body)
+        expressions.concat(terminal_expressions(function.body))
+        expressions.uniq.each do |expression|
+          next if compatible_return?(function.return_type, expression)
+
+          raise SignatureError,
+                "Function #{function.name} returns #{return_type_of(expression).inspect}, expected #{function.return_type.inspect}"
+        end
+      end
+
+      def explicit_return_expressions(node)
+        case node
+        when IR::Block
+          node.statements.flat_map { |statement| explicit_return_expressions(statement) }
+        when IR::IfStatement
+          explicit_return_expressions(node.then_branch) + explicit_return_expressions(node.else_branch)
+        when IR::ForLoop, IR::WhileLoop
+          explicit_return_expressions(node.body)
+        when IR::Return
+          node.expression ? [node.expression] : []
+        else
+          []
+        end
+      end
+
+      def terminal_expressions(node)
+        case node
+        when IR::Block
+          terminal_expressions(node.statements.last)
+        when IR::IfStatement
+          terminal_expressions(node.then_branch) + terminal_expressions(node.else_branch)
+        when IR::Return, nil
+          []
+        else
+          node.type ? [node] : []
+        end
+      end
+
+      def compatible_return?(expected, expression)
+        if expected.is_a?(Array)
+          actual = return_type_of(expression)
+          return false unless actual.is_a?(Array) && actual.length == expected.length
+
+          return expected.zip(actual).all? { |expected_type, actual_type| compatible_type?(expected_type, actual_type) }
+        end
+
+        compatible_type?(expected, expression.type)
+      end
+
+      def return_type_of(expression)
+        return expression.elements.map(&:type) if expression.is_a?(IR::ArrayLiteral)
+        return expression.type.types if expression.type.is_a?(IR::TupleType)
+
+        expression.type
+      end
+
+      def compatible_type?(expected, actual)
+        expected == actual || (expected == :float && actual == :int)
       end
     end
   end

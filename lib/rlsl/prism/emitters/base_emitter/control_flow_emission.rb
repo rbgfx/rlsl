@@ -6,8 +6,7 @@ module RLSL
       class BaseEmitter
         module ControlFlowEmission
           def emit_tuple_return(node)
-            elements = node.elements.map { |elem| emit(elem) }.join(", ")
-            "#{indent}return (#{current_return_struct_name}){#{elements}};\n"
+            "#{indent}return #{emit_tuple_value(node)};\n"
           end
 
           def emit_if_statement(node)
@@ -56,6 +55,10 @@ module RLSL
           end
 
           def emit_return(node)
+            if node.expression.is_a?(IR::ArrayLiteral) && @return_struct_name_stack.any?
+              return "return #{emit_tuple_value(node.expression)}"
+            end
+
             node.expression ? "return #{emit(node.expression)}" : "return"
           end
 
@@ -66,7 +69,10 @@ module RLSL
             body = emit_indented_block(node.body)
 
             comparison = node.exclude_end ? "<" : "<="
-            "for (int #{var} = #{start_val}; #{var} #{comparison} #{end_val}; #{var}++) {\n#{body}#{indent}}"
+            return "for (int #{var} = #{start_val}; #{var} #{comparison} #{end_val}; #{var}++) {\n#{body}#{indent}}" if node.range_end.is_a?(IR::Literal)
+
+            bound = next_temporary_name("end")
+            "int #{bound} = #{end_val};\n#{indent}for (int #{var} = #{start_val}; #{var} #{comparison} #{bound}; #{var}++) {\n#{body}#{indent}}"
           end
 
           def emit_while_loop(node)
@@ -84,6 +90,11 @@ module RLSL
             node.hoisted_variables.map do |name, type|
               "#{indent}#{type_name(type || :float)} #{name};\n"
             end.join
+          end
+
+          def emit_tuple_value(node)
+            elements = node.elements.map { |elem| emit(elem) }.join(", ")
+            "(#{current_return_struct_name}){#{elements}}"
           end
 
         end

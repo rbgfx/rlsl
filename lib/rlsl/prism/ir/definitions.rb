@@ -39,14 +39,15 @@ module RLSL
       end
 
       class MultipleAssignment < Node
-        attr_reader :targets, :value
+        attr_reader :targets, :value, :declarations
 
         visits :visit_multiple_assignment
 
-        def initialize(targets, value)
+        def initialize(targets, value, declarations: nil)
           super()
           @targets = targets
           @value = value
+          @declarations = declarations || Array.new(targets.length, true)
           @type = nil
         end
       end
