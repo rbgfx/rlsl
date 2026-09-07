@@ -254,7 +254,7 @@ class ReviewRegressionsTest < Test::Unit::TestCase
   end
 
   test "native shader cache preserves A B A renderer identity" do
-    Dir.mktmpdir("rlsl-review-cache") do |cache_dir|
+    with_native_cache("rlsl-review-cache") do |cache_dir|
       colors = [
         "vec3(1.0, 0.0, 0.0)",
         "vec3(0.0, 1.0, 0.0)",
@@ -317,12 +317,19 @@ class ReviewRegressionsTest < Test::Unit::TestCase
   private
 
   def render_native(name, fragment, functions: {}, helpers: "")
-    Dir.mktmpdir("rlsl-review") do |cache_dir|
+    with_native_cache("rlsl-review") do |cache_dir|
       shader = compile_native(cache_dir, name, fragment, functions:, helpers:)
       buffer = "\0".b * 4
       shader.render(buffer, 1, 1)
       buffer.bytes
     end
+  end
+
+  def with_native_cache(prefix)
+    # Windows keeps loaded extensions locked until process exit; its temp cleanup removes these afterward.
+    return yield Dir.mktmpdir(prefix) if Gem.win_platform?
+
+    Dir.mktmpdir(prefix) { |directory| yield directory }
   end
 
   def compile_native(cache_dir, name, fragment, functions: {}, helpers: "")
