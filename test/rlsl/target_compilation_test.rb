@@ -59,7 +59,7 @@ class TargetCompilationTest < Test::Unit::TestCase
       converted = identity(hits)
       mixed = hits + 0.5
       scaled = vec3(0.25) * hits
-      wrapped = -1.0 % 2.0 + mod(-1.0, 2.0)
+      wrapped = -1.0 % 2 + mod(-1, 2)
       vec3(a, b, hits / 3 + wrapped + mixed + converted) + scaled
     RUBY
 

@@ -34,7 +34,7 @@ module RLSL
           floor: { args: [:any], returns: :same },
           ceil: { args: [:any], returns: :same },
           fract: { args: [:any], returns: :same },
-          mod: { args: %i[any float], returns: :first },
+          mod: { args: %i[float float], returns: :float },
           min: { args: %i[any any], returns: :first },
           max: { args: %i[any any], returns: :first },
           clamp: { args: %i[any any any], returns: :first },

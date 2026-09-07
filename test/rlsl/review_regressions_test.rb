@@ -214,7 +214,7 @@ class ReviewRegressionsTest < Test::Unit::TestCase
   end
 
   test "float modulo uses floor semantics on every target" do
-    source = "divisor = 2\nvec3(-1.0 % divisor + mod(-1.0, 2.0))"
+    source = "divisor = 2\nwrapped = mod(-1, divisor)\nvec3(-1.0 % divisor + wrapped)"
     outputs = %i[c glsl wgsl msl].to_h do |target|
       [target, @transpiler.transpile_source(source, target)]
     end
@@ -223,6 +223,7 @@ class ReviewRegressionsTest < Test::Unit::TestCase
     assert_equal 2, outputs[:glsl].scan("mod(").length
     assert_equal 2, outputs[:wgsl].scan("rlsl_mod").length
     assert_equal 2, outputs[:msl].scan("rlsl_mod").length
+    assert_include outputs[:wgsl], "let wrapped: f32 = rlsl_mod(f32(-1), f32(divisor))"
   end
 
   test "mixed scalar and vector arithmetic emits explicit float promotion" do
