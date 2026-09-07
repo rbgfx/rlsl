@@ -157,6 +157,7 @@ module RLSL
         end
 
         def visit_receiver_call(method_name, receiver)
+          return IR::FieldAccess.new(receiver, method_name) if receiver.type == :uniforms
           return receiver if method_name == "freeze"
 
           IR::FieldAccess.new(receiver, method_name)

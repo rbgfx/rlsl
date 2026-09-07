@@ -20,7 +20,7 @@ module RLSL
         def visit_local_variable_write(node)
           name = node.name.to_sym
           value = normalize_expression(visit(node.value))
-          emitted_name = parameter_reference?(name) ? emitted_parameter_name(name) : name
+          emitted_name = fragment_parameter_reference?(name) ? emitted_parameter_name(name) : name
 
           if known_variable?(name)
             IR::Assignment.new(IR::VarRef.new(emitted_name), value)
@@ -38,7 +38,7 @@ module RLSL
           unless known_variable?(name)
             raise UnsupportedSyntaxError, "Operator assignment requires an initialized variable: #{name}"
           end
-          emitted_name = parameter_reference?(name) ? emitted_parameter_name(name) : name
+          emitted_name = fragment_parameter_reference?(name) ? emitted_parameter_name(name) : name
           target = IR::VarRef.new(emitted_name)
           expr = IR::BinaryOp.new(operator, IR::VarRef.new(emitted_name), IR::Parenthesized.new(value))
           IR::Assignment.new(target, expr)
@@ -46,7 +46,7 @@ module RLSL
 
         def visit_local_variable_read(node)
           name = node.name.to_sym
-          emitted_name = parameter_reference?(name) ? emitted_parameter_name(name) : name
+          emitted_name = fragment_parameter_reference?(name) ? emitted_parameter_name(name) : name
           type = infer_param_type(name) if fragment_parameter_reference?(name)
           IR::VarRef.new(emitted_name, type)
         end
@@ -75,7 +75,8 @@ module RLSL
             name = target.name.to_sym
             declarations << !known_variable?(name)
             declare_variable(name) if declarations.last
-            IR::VarRef.new(name)
+            emitted_name = fragment_parameter_reference?(name) ? emitted_parameter_name(name) : name
+            IR::VarRef.new(emitted_name)
           end
 
           IR::MultipleAssignment.new(targets, visit(node.value), declarations: declarations)

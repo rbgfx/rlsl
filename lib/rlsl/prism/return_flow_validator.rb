@@ -21,7 +21,6 @@ module RLSL
         IR::Ternary,
         IR::Constant,
         IR::Parenthesized,
-        IR::ArrayLiteral,
         IR::ArrayIndex
       ].freeze
 
@@ -37,28 +36,34 @@ module RLSL
         IR::Traversal.each(node) do |current|
           next unless current.is_a?(IR::FunctionDefinition)
 
-          validate_returning_block!(current.body, "function #{current.name}")
+          validate_returning_block!(
+            current.body,
+            "function #{current.name}",
+            tuple_return: current.return_type.is_a?(Array)
+          )
         end
       end
 
-      def validate_returning_block!(node, context)
-        return if returns_value_on_all_paths?(node)
+      def validate_returning_block!(node, context, tuple_return: false)
+        return if returns_value_on_all_paths?(node, tuple_return: tuple_return)
 
         raise ReturnFlowError.new(
           "#{context} does not return a value on every path"
         ).with_source_location(node.location)
       end
 
-      def returns_value_on_all_paths?(node)
+      def returns_value_on_all_paths?(node, tuple_return: false)
         case node
         when IR::Block
-          returns_value_on_all_paths?(node.statements.last)
+          returns_value_on_all_paths?(node.statements.last, tuple_return: tuple_return)
         when IR::Return
           !node.expression.nil?
         when IR::IfStatement
           node.else_branch &&
-            returns_value_on_all_paths?(node.then_branch) &&
-            returns_value_on_all_paths?(node.else_branch)
+            returns_value_on_all_paths?(node.then_branch, tuple_return: tuple_return) &&
+            returns_value_on_all_paths?(node.else_branch, tuple_return: tuple_return)
+        when IR::ArrayLiteral
+          tuple_return
         else
           VALUE_NODES.any? { |klass| node.is_a?(klass) }
         end

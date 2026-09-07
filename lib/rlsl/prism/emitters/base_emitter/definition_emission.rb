@@ -86,7 +86,7 @@ module RLSL
           def emit_multi_return_assignment(node, value_code)
             func_name = node.value.name
             temporary = next_temporary_name("result")
-            lines = ["#{func_name}_result #{temporary} = #{value_code}"]
+            lines = [emit_temporary_declaration("#{func_name}_result", temporary, value_code)]
             node.targets.each_with_index do |target, index|
               lines << "#{emit_multiple_assignment_target(target, node.declarations[index])} = #{temporary}.v#{index}"
             end
@@ -101,6 +101,10 @@ module RLSL
 
           def emit_multiple_assignment_target(target, declaration)
             declaration ? "#{type_name(target.type || :float)} #{target.name}" : target.name.to_s
+          end
+
+          def emit_temporary_declaration(type, name, value)
+            "#{type} #{name} = #{value}"
           end
         end
       end

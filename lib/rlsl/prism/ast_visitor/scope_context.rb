@@ -22,7 +22,7 @@ module RLSL
         end
 
         def root_parameter?(name)
-          @scopes.first.params.include?(name.to_sym)
+          @scopes.rindex { |scope| scope.params.include?(name.to_sym) } == 0
         end
 
         def declared?(name)

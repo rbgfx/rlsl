@@ -142,6 +142,10 @@ module RLSL
           declaration ? "var #{target.name}: #{type_name(target.type || :float)}" : target.name.to_s
         end
 
+        def emit_temporary_declaration(type, name, value)
+          "let #{name}: #{type} = #{value}"
+        end
+
         def emit_tuple_value(node)
           elements = node.elements.map { |element| emit(element) }.join(", ")
           "#{current_return_struct_name}(#{elements})"
