@@ -72,13 +72,18 @@ module RLSL
         end
 
         def emit_binary_op(node)
-          return emit_named_call("rlsl_mod", [node.left, node.right]) if node.operator == "%" && node.type == :float
+          if node.operator == "%" && node.type == :float
+            return "rlsl_mod(#{emit_float_operand(node.left)}, #{emit_float_operand(node.right)})"
+          end
 
           super
         end
 
         def emit_func_call(node)
-          return emit_named_call("rlsl_mod", node.args) if node.name.to_sym == :mod
+          if node.name.to_sym == :mod
+            args = node.args.map { |argument| emit_float_operand(argument) }
+            return "rlsl_mod(#{args.join(', ')})"
+          end
 
           super
         end
@@ -93,13 +98,13 @@ module RLSL
           if node.return_type.is_a?(Array)
             struct_def = emit_result_struct(name, node.return_type)
             body = with_return_struct_name("#{name}_result") do
-              emit_indented_block(node.body, needs_return: true)
+              with_return_type(node.return_type) { emit_indented_block(node.body, needs_return: true) }
             end
 
             "#{struct_def}fn #{name}(#{params}) -> #{name}_result {\n#{body}#{indent}}\n"
           else
             return_type = type_name(node.return_type || :float)
-            body = emit_indented_block(node.body, needs_return: true)
+            body = with_return_type(node.return_type) { emit_indented_block(node.body, needs_return: true) }
 
             "fn #{name}(#{params}) -> #{return_type} {\n#{body}#{indent}}\n"
           end
@@ -146,7 +151,7 @@ module RLSL
           texture = emit(node.args[0])
           sampler = "#{texture}_sampler"
           uv = emit(node.args[1])
-          lod = node.args[2] ? emit(node.args[2]) : "0.0"
+          lod = node.args[2] ? emit_typed_argument(node.args[2], :float) : "0.0"
           "textureSampleLevel(#{texture}, #{sampler}, #{uv}, #{lod})"
         end
 
@@ -159,7 +164,10 @@ module RLSL
         end
 
         def emit_tuple_value(node)
-          elements = node.elements.map { |element| emit(element) }.join(", ")
+          expected_types = Array(current_return_type)
+          elements = node.elements.each_with_index.map do |element, index|
+            emit_typed_argument(element, expected_types[index])
+          end.join(", ")
           "#{current_return_struct_name}(#{elements})"
         end
       end

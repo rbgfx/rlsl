@@ -35,9 +35,18 @@ class TargetCompilationTest < Test::Unit::TestCase
   test "generated tuple helpers and assignments pass GLSL and WGSL validation" do
     builder = RLSL::ShaderBuilder.new(:tuple_compiler_checked)
     builder.functions do
-      define :pair, returns: %i[float float], params: { value: :float }
+      define :pair, returns: %i[float float], params: { value: :int }
+      define :identity, returns: :float, params: { value: :float }
     end
-    builder.helpers_source("def pair(value)\n[value, value]\nend")
+    builder.helpers_source(<<~RUBY)
+      def pair(value)
+        [value, value]
+      end
+
+      def identity(value)
+        value
+      end
+    RUBY
     builder.fragment_source(<<~RUBY)
       n = 3
       hits = 0
@@ -45,10 +54,13 @@ class TargetCompilationTest < Test::Unit::TestCase
         n -= 1
         hits += 1
       end
-      a, b = pair(0.5)
+      a, b = pair(hits)
       a, b = [b, a]
+      converted = identity(hits)
+      mixed = hits + 0.5
+      scaled = vec3(0.25) * hits
       wrapped = -1.0 % 2.0 + mod(-1.0, 2.0)
-      vec3(a, b, hits / 3 + wrapped)
+      vec3(a, b, hits / 3 + wrapped + mixed + converted) + scaled
     RUBY
 
     require_command!("glslangValidator", "REQUIRE_GLSL_COMPILER")

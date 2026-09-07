@@ -23,11 +23,13 @@ module RLSL
       def resolve_builtin(node, signature)
         arg_types = effective_arg_types(node)
         @call_validator.validate_builtin!(node, arg_types, signature)
+        node.expected_arg_types = signature[:args].first(arg_types.length)
         Builtins.resolve_return_type(signature[:returns], arg_types)
       end
 
       def resolve_custom(node, signature)
         @call_validator.validate_custom!(node.name, effective_arg_types(node), signature)
+        node.expected_arg_types = signature[:params]&.values || []
         signature[:returns]
       end
 

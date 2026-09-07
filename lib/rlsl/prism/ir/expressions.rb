@@ -94,6 +94,7 @@ module RLSL
 
       class FuncCall < Node
         attr_reader :name, :args, :receiver
+        attr_accessor :expected_arg_types
 
         visits :visit_func_call
 
@@ -102,6 +103,7 @@ module RLSL
           @name = name
           @args = args
           @receiver = receiver
+          @expected_arg_types = []
           @type = type
         end
       end

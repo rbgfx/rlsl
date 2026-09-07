@@ -14,11 +14,11 @@ module RLSL
             if node.return_type.is_a?(Array)
               struct_def = emit_result_struct(name, node.return_type)
               body = with_return_struct_name("#{name}_result") do
-                emit_indented_block(node.body, needs_return: true)
+                with_return_type(node.return_type) { emit_indented_block(node.body, needs_return: true) }
               end
               "#{struct_def}#{function_qualifier}#{name}_result #{name}(#{params}) {\n#{body}#{indent}}\n"
             else
-              body = emit_indented_block(node.body, needs_return: true)
+              body = with_return_type(node.return_type) { emit_indented_block(node.body, needs_return: true) }
               "#{function_qualifier}#{type_name(node.return_type || :float)} #{name}(#{params}) {\n#{body}#{indent}}\n"
             end
           end

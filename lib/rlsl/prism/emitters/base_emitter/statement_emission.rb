@@ -36,7 +36,7 @@ module RLSL
             return emit_statement(node) if terminal_passthrough_node?(node)
             return emit_tuple_return(node) if node.is_a?(IR::ArrayLiteral)
 
-            "#{indent}return #{emit(node)};\n"
+            "#{indent}return #{emit_return_expression(node)};\n"
           end
 
           def emit_branch(node, needs_return:)

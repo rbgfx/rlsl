@@ -59,7 +59,7 @@ module RLSL
               return "return #{emit_tuple_value(node.expression)}"
             end
 
-            node.expression ? "return #{emit(node.expression)}" : "return"
+            node.expression ? "return #{emit_return_expression(node.expression)}" : "return"
           end
 
           def emit_for_loop(node)
@@ -93,8 +93,15 @@ module RLSL
           end
 
           def emit_tuple_value(node)
-            elements = node.elements.map { |elem| emit(elem) }.join(", ")
+            expected_types = Array(current_return_type)
+            elements = node.elements.each_with_index.map do |element, index|
+              emit_typed_argument(element, expected_types[index])
+            end.join(", ")
             "(#{current_return_struct_name}){#{elements}}"
+          end
+
+          def emit_return_expression(node)
+            emit_typed_argument(node, current_return_type)
           end
 
         end

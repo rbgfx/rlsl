@@ -42,7 +42,7 @@ module RLSL
           texture = emit(node.args[0])
           uv = emit(node.args[1])
           if name == :textureLod
-            lod = emit(node.args[2])
+            lod = emit_typed_argument(node.args[2], :float)
             return "#{texture}.sample(rlsl_texture_sampler, #{uv}, level(#{lod}))"
           end
 
@@ -50,13 +50,18 @@ module RLSL
         end
 
         def emit_binary_op(node)
-          return emit_named_call("rlsl_mod", [node.left, node.right]) if node.operator == "%" && node.type == :float
+          if node.operator == "%" && node.type == :float
+            return "rlsl_mod(#{emit_float_operand(node.left)}, #{emit_float_operand(node.right)})"
+          end
 
           super
         end
 
         def emit_func_call(node)
-          return emit_named_call("rlsl_mod", node.args) if node.name.to_sym == :mod
+          if node.name.to_sym == :mod
+            args = node.args.map { |argument| emit_float_operand(argument) }
+            return "rlsl_mod(#{args.join(', ')})"
+          end
 
           super
         end
@@ -71,7 +76,10 @@ module RLSL
         end
 
         def emit_tuple_value(node)
-          elements = node.elements.map { |element| emit(element) }.join(", ")
+          expected_types = Array(current_return_type)
+          elements = node.elements.each_with_index.map do |element, index|
+            emit_typed_argument(element, expected_types[index])
+          end.join(", ")
           "#{current_return_struct_name}{#{elements}}"
         end
       end

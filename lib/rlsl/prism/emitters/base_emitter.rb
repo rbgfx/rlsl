@@ -70,6 +70,7 @@ module RLSL
           @indent_level = 0
           @return_context_stack = [false]
           @return_struct_name_stack = []
+          @return_type_stack = []
           @temporary_index = 0
           @emit_depth = 0
           @occupied_names = Set.new
@@ -135,6 +136,17 @@ module RLSL
           yield
         ensure
           @return_struct_name_stack.pop
+        end
+
+        def with_return_type(type)
+          @return_type_stack << type
+          yield
+        ensure
+          @return_type_stack.pop
+        end
+
+        def current_return_type
+          @return_type_stack.last
         end
 
         def with_return_context(enabled)

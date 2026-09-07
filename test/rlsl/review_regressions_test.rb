@@ -177,6 +177,18 @@ class ReviewRegressionsTest < Test::Unit::TestCase
     end
   end
 
+  test "float helper returns promote integer variables" do
+    signatures = {
+      scalar: { returns: :float, params: { value: :int } },
+      pair: { returns: %i[float float], params: { value: :int } }
+    }
+    source = "def scalar(value)\nvalue\nend\ndef pair(value)\n[value, value]\nend"
+    code = @transpiler.transpile_helpers_source(source, :wgsl, signatures)
+
+    assert_include code, "return f32(value)"
+    assert_include code, "return pair_result(f32(value), f32(value))"
+  end
+
   test "reviewed C semantics hold in a compiled native shader" do
     functions = {
       next_value: { returns: :float, params: {} },
@@ -202,7 +214,7 @@ class ReviewRegressionsTest < Test::Unit::TestCase
   end
 
   test "float modulo uses floor semantics on every target" do
-    source = "vec3(-1.0 % 2.0 + mod(-1.0, 2.0))"
+    source = "divisor = 2\nvec3(-1.0 % divisor + mod(-1.0, 2.0))"
     outputs = %i[c glsl wgsl msl].to_h do |target|
       [target, @transpiler.transpile_source(source, target)]
     end
@@ -211,6 +223,33 @@ class ReviewRegressionsTest < Test::Unit::TestCase
     assert_equal 2, outputs[:glsl].scan("mod(").length
     assert_equal 2, outputs[:wgsl].scan("rlsl_mod").length
     assert_equal 2, outputs[:msl].scan("rlsl_mod").length
+  end
+
+  test "mixed scalar and vector arithmetic emits explicit float promotion" do
+    source = "whole = 1\nmixed = whole + 0.5\nscaled = vec3(0.25) * whole\nscaled + mixed"
+    outputs = %i[c glsl wgsl msl].to_h do |target|
+      [target, @transpiler.transpile_source(source, target)]
+    end
+
+    assert_include outputs[:c], "(float)(whole) + 0.5f"
+    assert_include outputs[:glsl], "float(whole) + 0.5"
+    assert_include outputs[:wgsl], "f32(whole) + 0.5"
+    assert_include outputs[:wgsl], "vec3<f32>(0.25) * f32(whole)"
+    assert_include outputs[:msl], "float(whole) + 0.5"
+  end
+
+  test "float function arguments and constructors promote integer variables" do
+    functions = { scale: { returns: :float, params: { value: :float } } }
+    source = "whole = 1\nvec3(sin(whole) + scale(whole))"
+    outputs = %i[c glsl wgsl msl].to_h do |target|
+      [target, RLSL::Prism::Transpiler.new({}, functions).transpile_source(source, target)]
+    end
+
+    assert_include outputs[:c], "sinf((float)(whole))"
+    assert_include outputs[:glsl], "sin(float(whole))"
+    assert_include outputs[:wgsl], "sin(f32(whole))"
+    assert_include outputs[:wgsl], "scale(f32(whole))"
+    assert_include outputs[:msl], "sin(float(whole))"
   end
 
   test "native shader cache preserves A B A renderer identity" do

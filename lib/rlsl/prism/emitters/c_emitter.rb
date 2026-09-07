@@ -82,12 +82,21 @@ module RLSL
         def emit_profile_func_call(node)
           name = node.name.to_sym
           return emit_c_vector_constructor(node) if vector_type?(name)
-          return emit_named_call("atan2f", node.args) if name == :atan && node.args.length == 2
-          if %i[distance cross].include?(name) && vector_type?(node.args.first&.type)
-            return emit_named_call("#{node.args.first.type}_#{name}", node.args)
+          if name == :atan && node.args.length == 2
+            return emit_named_call("atan2f", node.args, expected_types: node.expected_arg_types)
           end
-          return emit_named_call("#{node.args.first.type}_#{name}", node.args) if vector_math_call?(name, node)
-          return emit_named_call("mix_#{vector_suffix(node.args.first.type)}", node.args) if vector_mix_call?(name, node)
+          if %i[distance cross].include?(name) && vector_type?(node.args.first&.type)
+            return emit_named_call("#{node.args.first.type}_#{name}", node.args,
+                                   expected_types: node.expected_arg_types)
+          end
+          if vector_math_call?(name, node)
+            return emit_named_call("#{node.args.first.type}_#{name}", node.args,
+                                   expected_types: node.expected_arg_types)
+          end
+          if vector_mix_call?(name, node)
+            return emit_named_call("mix_#{vector_suffix(node.args.first.type)}", node.args,
+                                   expected_types: node.expected_arg_types)
+          end
         end
 
         def emit_profile_binary_op(node)
@@ -115,8 +124,10 @@ module RLSL
           "#{node.receiver.type}_swizzle#{indices.length}(#{emit(node.receiver)}, #{indices.join(', ')})"
         end
 
-        def emit_integer_division(node)
-          "(float)(#{emit(node.left)}) / (float)(#{emit(node.right)})"
+        def emit_float_operand(node)
+          return emit(node) unless node.type == :int
+
+          "(float)(#{emit(node)})"
         end
 
         private
@@ -138,7 +149,7 @@ module RLSL
         end
 
         def emit_float_modulo(node)
-          emit_named_call("rlsl_mod", [node.left, node.right])
+          "rlsl_mod(#{emit_float_operand(node.left)}, #{emit_float_operand(node.right)})"
         end
 
         def emit_vector_binary_op(node)
