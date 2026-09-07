@@ -10,19 +10,19 @@ Gem::Specification.new do |spec|
 
   spec.summary = "Ruby Like Shading Language - A shader DSL for Ruby"
   spec.description = "RLSL is a Ruby DSL for writing shaders that can be transpiled to GLSL, WGSL, and MSL"
-  spec.homepage = "https://github.com/ydah/rlsl"
+  spec.homepage = "https://rbgfx.github.io/rlsl/"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.1.0"
 
   spec.metadata["homepage_uri"] = spec.homepage
-  spec.metadata["source_code_uri"] = spec.homepage
-  spec.metadata["changelog_uri"] = "#{spec.homepage}/blob/main/CHANGELOG.md"
+  spec.metadata["source_code_uri"] = "https://github.com/rbgfx/rlsl"
+  spec.metadata["changelog_uri"] = "https://github.com/rbgfx/rlsl/blob/main/CHANGELOG.md"
 
   gemspec = File.basename(__FILE__)
   spec.files = IO.popen(%w[git ls-files -z], chdir: __dir__, err: IO::NULL) do |ls|
     ls.readlines("\x0", chomp: true).reject do |f|
       (f == gemspec) ||
-        f.start_with?(*%w[bin/ test/ spec/ features/ .git .github appveyor Gemfile])
+        f.start_with?(*%w[bin/ test/ spec/ features/ docs/ .git .github appveyor Gemfile])
     end
   end
   spec.require_paths = ["lib"]

@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f8fafc">
+    <meta
+      name="description"
+      content="RLSL is a Ruby DSL for writing shaders that transpile to GLSL, WGSL, MSL, and C."
+    >
+    <meta property="og:title" content="RLSL — Ruby syntax. GPU reach.">
+    <meta
+      property="og:description"
+      content="Write shaders in Ruby and transpile them to GLSL, WGSL, MSL, or C."
+    >
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://rbgfx.github.io/rlsl/">
+    <meta name="twitter:card" content="summary">
+    <link rel="canonical" href="https://rbgfx.github.io/rlsl/">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=Instrument+Sans:wght@400;500;600;700&amp;display=swap"
+    >
+    <link rel="stylesheet" href="./styles.css">
+    <title>RLSL — Ruby Like Shading Language</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="RLSL home">
+        <span class="brand-mark" aria-hidden="true">R</span>
+        <span>RLSL</span>
+      </a>
+      <nav class="site-nav" aria-label="Primary navigation">
+        <a href="#workflow">How it works</a>
+        <a href="#targets">Targets</a>
+        <a href="#install">Install</a>
+        <a class="nav-source" href="https://github.com/rbgfx/rlsl">View source</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section class="hero" id="top" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="hero-route">Ruby <span aria-hidden="true">→</span> GLSL · WGSL · MSL · C</p>
+          <h1 id="hero-title">Ruby syntax.<br><span>GPU reach.</span></h1>
+          <p class="hero-lede">
+            Write a shader once with familiar Ruby constructs. RLSL infers its types and emits
+            source for the graphics API your project needs.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#install">Get started</a>
+            <a class="button button-secondary" href="https://github.com/rbgfx/rlsl">Explore on GitHub</a>
+          </div>
+          <ul class="hero-facts" aria-label="Project facts">
+            <li><span>Targets</span><strong class="tabular-nums">04</strong></li>
+            <li><span>Ruby</span><strong class="tabular-nums">≥ 3.1</strong></li>
+            <li><span>License</span><strong>MIT</strong></li>
+          </ul>
+        </div>
+
+        <figure class="workbench">
+          <figcaption>
+            <span>plasma.rb</span>
+            <span>RLSL source</span>
+          </figcaption>
+          <pre class="code-block" aria-label="RLSL shader example"><code><span class="code-keyword">uniforms do</span>
+  <span class="code-call">float</span> <span class="code-symbol">:time</span>
+<span class="code-keyword">end</span>
+
+<span class="code-keyword">fragment do</span> |coord, size, u|
+  uv = coord / size
+
+  red = <span class="code-call">sin</span>(u.time + uv.x * <span class="code-number">6.28</span>)
+  blue = <span class="code-call">sin</span>(u.time + uv.y * <span class="code-number">6.28</span>)
+
+  <span class="code-call">vec3</span>(red * <span class="code-number">0.5</span> + <span class="code-number">0.5</span>, uv.y, blue)
+<span class="code-keyword">end</span></code></pre>
+          <div class="render-output">
+            <div class="render-label">
+              <span>compiled field</span>
+              <span>fragment output</span>
+            </div>
+            <svg
+              viewBox="0 0 640 240"
+              role="img"
+              aria-label="Abstract shader field with contour lines intersected by a red wave."
+            >
+              <g class="field-grid" aria-hidden="true">
+                <path d="M0 40H640M0 80H640M0 120H640M0 160H640M0 200H640"></path>
+                <path d="M80 0V240M160 0V240M240 0V240M320 0V240M400 0V240M480 0V240M560 0V240"></path>
+              </g>
+              <g class="field-lines" aria-hidden="true">
+                <path d="M-30 188C65 118 115 227 210 157S361 77 455 134 576 173 680 83"></path>
+                <path d="M-25 211C70 141 122 250 217 180S368 100 462 157 584 196 685 106"></path>
+                <path d="M-35 165C60 95 108 204 203 134S354 54 448 111 570 150 675 60"></path>
+              </g>
+              <path class="signal-line" d="M-30 142C70 32 147 232 248 120S425 16 510 107 600 149 680 64"></path>
+              <circle class="signal-point" cx="407" cy="63" r="7"></circle>
+            </svg>
+          </div>
+        </figure>
+      </section>
+
+      <section class="pipeline" id="workflow" aria-labelledby="workflow-title">
+        <div class="section-heading">
+          <p class="section-index">01 / Workflow</p>
+          <h2 id="workflow-title">One source.<br>Four native outputs.</h2>
+          <p>
+            RLSL keeps the authoring loop in Ruby while producing shader source that belongs in
+            each target ecosystem.
+          </p>
+        </div>
+        <ol class="pipeline-steps">
+          <li>
+            <span class="step-number tabular-nums">01</span>
+            <h3>Describe</h3>
+            <p>Use blocks, helper functions, uniforms, vectors, matrices, and familiar control flow.</p>
+          </li>
+          <li>
+            <span class="step-number tabular-nums">02</span>
+            <h3>Infer</h3>
+            <p>RLSL parses the Ruby source with Prism, resolves shader types, and validates the program.</p>
+          </li>
+          <li>
+            <span class="step-number tabular-nums">03</span>
+            <h3>Emit</h3>
+            <p>Generate source for OpenGL, WebGPU, Metal, or a C target for CPU rendering.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="code-story" aria-labelledby="code-title">
+        <div class="code-story-copy">
+          <p class="section-index">02 / Authoring</p>
+          <h2 id="code-title">Keep shader logic readable.</h2>
+          <p>
+            Shader code stays close to the Ruby application that owns it. Declare uniforms once,
+            name helper signatures explicitly, and choose the target at the call site.
+          </p>
+          <a class="text-link" href="https://github.com/rbgfx/rlsl#usage">Read the usage guide</a>
+        </div>
+        <div class="source-sample">
+          <div class="source-tabs" aria-label="Example output targets">
+            <span class="active-tab">Ruby</span>
+            <span>GLSL</span>
+            <span>WGSL</span>
+            <span>MSL</span>
+          </div>
+          <pre class="code-block"><code><span class="code-comment"># The same block can target three GPU languages.</span>
+shader = RLSL.<span class="code-call">to_wgsl</span>(<span class="code-symbol">:pulse</span>) <span class="code-keyword">do</span>
+  uniforms <span class="code-keyword">do</span>
+    <span class="code-call">float</span> <span class="code-symbol">:time</span>
+  <span class="code-keyword">end</span>
+
+  fragment <span class="code-keyword">do</span> |coord, resolution, u|
+    uv = coord / resolution
+    wave = <span class="code-call">sin</span>(u.time + uv.x * TAU)
+    <span class="code-call">vec3</span>(uv.x, uv.y, wave * <span class="code-number">0.5</span> + <span class="code-number">0.5</span>)
+  <span class="code-keyword">end</span>
+<span class="code-keyword">end</span></code></pre>
+        </div>
+      </section>
+
+      <section class="targets" id="targets" aria-labelledby="targets-title">
+        <div class="section-heading targets-heading">
+          <p class="section-index">03 / Targets</p>
+          <h2 id="targets-title">Meet the renderer where it is.</h2>
+          <p>Source generation is platform-independent. Choose the output that fits the host.</p>
+        </div>
+        <div class="target-list" role="list">
+          <article role="listitem">
+            <div>
+              <h3>GLSL</h3>
+              <p>OpenGL Shading Language</p>
+            </div>
+            <p>Desktop and cross-platform graphics pipelines.</p>
+            <code>RLSL.to_glsl</code>
+          </article>
+          <article role="listitem">
+            <div>
+              <h3>WGSL</h3>
+              <p>WebGPU Shading Language</p>
+            </div>
+            <p>Modern GPU rendering for the web and native WebGPU hosts.</p>
+            <code>RLSL.to_wgsl</code>
+          </article>
+          <article role="listitem">
+            <div>
+              <h3>MSL</h3>
+              <p>Metal Shading Language</p>
+            </div>
+            <p>Source generation for Apple's Metal graphics stack.</p>
+            <code>RLSL.to_msl</code>
+          </article>
+          <article role="listitem">
+            <div>
+              <h3>C</h3>
+              <p>Native CPU target</p>
+            </div>
+            <p>Compile and run the shader as a Ruby C extension for CPU rendering.</p>
+            <code>RLSL.define</code>
+          </article>
+        </div>
+      </section>
+
+      <section class="install" id="install" aria-labelledby="install-title">
+        <div>
+          <p class="section-index">04 / Install</p>
+          <h2 id="install-title">From gem to first shader.</h2>
+          <p>RLSL supports Ruby 3.1 and newer. Install it, require it, and start with one fragment block.</p>
+        </div>
+        <div class="install-command" aria-label="Install command">
+          <span aria-hidden="true">$</span>
+          <code>gem install rlsl</code>
+        </div>
+        <div class="install-links">
+          <a class="button button-primary" href="https://github.com/rbgfx/rlsl#installation">Open installation guide</a>
+          <a class="text-link" href="https://rubygems.org/gems/rlsl">View on RubyGems</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <a class="brand footer-brand" href="#top" aria-label="Back to top">
+        <span class="brand-mark" aria-hidden="true">R</span>
+        <span>RLSL</span>
+      </a>
+      <p>Ruby Like Shading Language · Ruby 3.1+ · MIT License</p>
+      <div>
+        <a href="https://github.com/rbgfx/rlsl">GitHub</a>
+        <a href="https://github.com/rbgfx/rlsl/blob/main/CHANGELOG.md">Changelog</a>
+      </div>
+    </footer>
+  </body>
+</html>
