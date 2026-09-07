@@ -57,16 +57,18 @@ module RLSL
         end
 
         def emit_for_loop(node)
-          var = node.variable
+          variable = node.variable
+          counter = loop_variable_mutated?(node) ? next_temporary_name("i") : variable
           start_val = emit(node.range_start)
           end_val = emit(node.range_end)
           body = emit_indented_block(node.body)
+          body = "#{indent}  var #{variable}: i32 = #{counter};\n#{body}" if counter != variable
 
           comparison = node.exclude_end ? "<" : "<="
-          return "for (var #{var}: i32 = #{start_val}; #{var} #{comparison} #{end_val}; #{var}++) {\n#{body}#{indent}}" if node.range_end.is_a?(IR::Literal)
+          return "for (var #{counter}: i32 = #{start_val}; #{counter} #{comparison} #{end_val}; #{counter}++) {\n#{body}#{indent}}" if node.range_end.is_a?(IR::Literal)
 
           bound = next_temporary_name("end")
-          "let #{bound}: i32 = #{end_val};\n#{indent}for (var #{var}: i32 = #{start_val}; #{var} #{comparison} #{bound}; #{var}++) {\n#{body}#{indent}}"
+          "let #{bound}: i32 = #{end_val};\n#{indent}for (var #{counter}: i32 = #{start_val}; #{counter} #{comparison} #{bound}; #{counter}++) {\n#{body}#{indent}}"
         end
 
         def emit_ternary(_node)
@@ -98,10 +100,16 @@ module RLSL
           name = node.name
           mutable_params = mutated_parameters(node)
           initializers = []
+          sampler_params = {}
           params = node.params.flat_map do |param|
             type = node.param_types[param] || :float
             if type == :sampler2D
-              ["#{param}: #{type_name(type)}", "#{param}_sampler: sampler"]
+              if mutable_params.include?(param)
+                raise TargetCapabilityError, "WGSL texture parameter #{param} cannot be reassigned"
+              end
+
+              sampler_params[param] = next_temporary_name("sampler")
+              ["#{param}: #{type_name(type)}", "#{sampler_params[param]}: sampler"]
             elsif mutable_params.include?(param)
               argument = next_temporary_name("param")
               initializers << "#{indent}  var #{param}: #{type_name(type)} = #{argument};\n"
@@ -114,13 +122,17 @@ module RLSL
           if node.return_type.is_a?(Array)
             struct_def = emit_result_struct(name, node.return_type)
             body = with_return_struct_name("#{name}_result") do
-              with_return_type(node.return_type) { emit_indented_block(node.body, needs_return: true) }
+              with_sampler_parameters(sampler_params) do
+                with_return_type(node.return_type) { emit_indented_block(node.body, needs_return: true) }
+              end
             end
 
             "#{struct_def}fn #{name}(#{params}) -> #{name}_result {\n#{initializers.join}#{body}#{indent}}\n"
           else
             return_type = type_name(node.return_type || :float)
-            body = with_return_type(node.return_type) { emit_indented_block(node.body, needs_return: true) }
+            body = with_sampler_parameters(sampler_params) do
+              with_return_type(node.return_type) { emit_indented_block(node.body, needs_return: true) }
+            end
 
             "fn #{name}(#{params}) -> #{return_type} {\n#{initializers.join}#{body}#{indent}}\n"
           end
@@ -168,7 +180,7 @@ module RLSL
           return unless profile.texture_functions.key?(name) && node.args.length >= 2
 
           texture = emit(node.args[0])
-          sampler = "#{texture}_sampler"
+          sampler = sampler_name(node.args[0], texture)
           uv = emit(node.args[1])
           lod = node.args[2] ? emit_typed_argument(node.args[2], :float) : "0.0"
           "textureSampleLevel(#{texture}, #{sampler}, #{uv}, #{lod})"
@@ -179,7 +191,7 @@ module RLSL
           rendered = arguments.each_with_index.flat_map do |argument, index|
             if expected_types[index] == :sampler2D
               texture = emit(argument)
-              [texture, "#{texture}_sampler"]
+              [texture, sampler_name(argument, texture)]
             else
               [emit_typed_argument(argument, expected_types[index])]
             end
@@ -215,6 +227,20 @@ module RLSL
               current.targets.each { |target| names.add(target.name) if parameters.include?(target.name) }
             end
           end
+        end
+
+        def with_sampler_parameters(parameters)
+          previous = @sampler_parameters
+          @sampler_parameters = parameters
+          yield
+        ensure
+          @sampler_parameters = previous
+        end
+
+        def sampler_name(argument, texture)
+          return @sampler_parameters[argument.name] if argument.is_a?(IR::VarRef) && @sampler_parameters&.key?(argument.name)
+
+          "#{texture}_sampler"
         end
       end
     end

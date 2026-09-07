@@ -153,7 +153,7 @@ class TargetCompilationTest < Test::Unit::TestCase
     builder.uniforms { sampler2D :albedo }
     builder.functions do
       define :bump, returns: :float, params: { x: :float }
-      define :sample_color, returns: :vec4, params: { tex: :sampler2D, uv: :vec2 }
+      define :sample_color, returns: :vec4, params: { tex: :sampler2D, tex_sampler: :float, uv: :vec2 }
     end
     builder.helpers_source(<<~RUBY)
       def bump(x)
@@ -161,8 +161,8 @@ class TargetCompilationTest < Test::Unit::TestCase
         x
       end
 
-      def sample_color(tex, uv)
-        texture(tex, uv)
+      def sample_color(tex, tex_sampler, uv)
+        texture(tex, uv) * tex_sampler
       end
     RUBY
     builder.fragment_source(<<~RUBY)
@@ -184,7 +184,10 @@ class TargetCompilationTest < Test::Unit::TestCase
       _rlsl_i0 = 0.25
       total = 0.0
       2.times { total = total + _rlsl_i0 }
-      sampled = sample_color(u.albedo, frag_coord / resolution).xyz
+      for loop_index in 0...2
+        loop_index += 1
+      end
+      sampled = sample_color(u.albedo, 1.0, frag_coord / resolution).xyz
       sampled + -vec3(root + blended + largest + values[1] + a + b + x + angle + scoped + total + bump(x))
     RUBY
     builder

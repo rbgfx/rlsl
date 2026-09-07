@@ -29,6 +29,7 @@ module RLSL
       end
 
       def build_wgsl_shader
+        validate_wgsl_module_names!
         WGSL::Translator.new(@definition.uniforms, *translation_sources(:wgsl), name: @name).translate
       end
 
@@ -85,6 +86,18 @@ module RLSL
                                        else
                                          NativeExtensionCompiler.new(@name)
                                        end
+      end
+
+      def validate_wgsl_module_names!
+        resources = @definition.uniforms.filter_map do |name, type|
+          [name, :"#{name}_sampler"] if type == :sampler2D
+        end.flatten
+        generated = %i[u output_texture rlsl_mod shader_fragment main]
+        functions = @definition.custom_functions.keys
+        conflicts = (resources & (generated + functions)) | (functions & generated)
+        return if conflicts.empty?
+
+        raise ArgumentError, "WGSL module name conflict: #{conflicts.join(', ')}"
       end
     end
   end

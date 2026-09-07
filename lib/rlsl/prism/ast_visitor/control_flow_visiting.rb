@@ -83,7 +83,9 @@ module RLSL
         end
 
         def visit_while(node)
-          IR::WhileLoop.new(visit(node.predicate), visit(node.statements) || IR::Block.new)
+          condition = visit(node.predicate)
+          body = visit_with_scoped_vars(node.statements) || IR::Block.new
+          IR::WhileLoop.new(condition, body)
         end
 
         def visit_break(_node)

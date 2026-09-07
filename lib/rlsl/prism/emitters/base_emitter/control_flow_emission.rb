@@ -63,16 +63,18 @@ module RLSL
           end
 
           def emit_for_loop(node)
-            var = node.variable
+            variable = node.variable
+            counter = loop_variable_mutated?(node) ? next_temporary_name("i") : variable
             start_val = emit(node.range_start)
             end_val = emit(node.range_end)
             body = emit_indented_block(node.body)
+            body = "#{indent}  #{type_name(:int)} #{variable} = #{counter};\n#{body}" if counter != variable
 
             comparison = node.exclude_end ? "<" : "<="
-            return "for (int #{var} = #{start_val}; #{var} #{comparison} #{end_val}; #{var}++) {\n#{body}#{indent}}" if node.range_end.is_a?(IR::Literal)
+            return "for (int #{counter} = #{start_val}; #{counter} #{comparison} #{end_val}; #{counter}++) {\n#{body}#{indent}}" if node.range_end.is_a?(IR::Literal)
 
             bound = next_temporary_name("end")
-            "int #{bound} = #{end_val};\n#{indent}for (int #{var} = #{start_val}; #{var} #{comparison} #{bound}; #{var}++) {\n#{body}#{indent}}"
+            "int #{bound} = #{end_val};\n#{indent}for (int #{counter} = #{start_val}; #{counter} #{comparison} #{bound}; #{counter}++) {\n#{body}#{indent}}"
           end
 
           def emit_while_loop(node)
@@ -102,6 +104,19 @@ module RLSL
 
           def emit_return_expression(node)
             emit_typed_argument(node, current_return_type)
+          end
+
+          def loop_variable_mutated?(node)
+            IR::Traversal.each(node.body).any? do |current|
+              case current
+              when IR::Assignment
+                current.target.is_a?(IR::VarRef) && current.target.name == node.variable
+              when IR::MultipleAssignment
+                current.targets.any? { |target| target.name == node.variable }
+              else
+                false
+              end
+            end
           end
 
         end

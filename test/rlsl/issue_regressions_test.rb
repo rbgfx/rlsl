@@ -548,10 +548,16 @@ class IssueRegressionsTest < Test::Unit::TestCase
       "_rlsl_i0 = 0.25\n2.times { _rlsl_i0 }\nvec3(_rlsl_i0)",
       :c
     )
+    while_scope = @transpiler.transpile_source(
+      "while false\n  x = 1.0\nend\nx = 2.0\nvec3(x)",
+      :wgsl
+    )
 
     assert_include branch, "}\nfloat x = 2.0f"
-    assert_include loop_code, "i = i + (1)"
+    assert_match(/for \(int (_rlsl_i\d+) = 0; \1 < 4; \1\+\+\).*int i = \1.*i = i \+ \(1\)/m,
+                 loop_code)
     assert_include collision, "for (int _rlsl_i1 = 0"
+    assert_include while_scope, "}\nlet x: f32 = 2.0"
   end
 
   test "C vector negation uses component-wise multiplication" do
@@ -589,13 +595,49 @@ class IssueRegressionsTest < Test::Unit::TestCase
     RUBY
 
     assert_match(/fn bump\((_rlsl_param\d+): f32\).*var x: f32 = \1/m, helpers)
-    assert_include helpers, "tex: texture_2d<f32>, tex_sampler: sampler"
-    assert_include helpers, "textureSampleLevel(tex, tex_sampler"
+    assert_match(/tex: texture_2d<f32>, (_rlsl_sampler\d+): sampler/, helpers)
+    assert_match(/tex: texture_2d<f32>, (_rlsl_sampler\d+): sampler.*textureSampleLevel\(tex, \1/m, helpers)
     assert_include fragment, "var a: f32"
     assert_include fragment, "var b: f32"
     assert_include fragment, "x = f32(i)"
     assert_include fragment, "atan2(0.5, 1.0)"
     assert_include fragment, "sample_color(albedo, albedo_sampler"
+  end
+
+  test "WGSL-generated module and sampler names cannot collide with source names" do
+    helper_collision = RLSL::ShaderBuilder.new(:helper_collision)
+    helper_collision.uniforms { sampler2D :albedo }
+    helper_collision.functions do
+      define :sample_color,
+             returns: :vec4,
+             params: { tex: :sampler2D, tex_sampler: :float, uv: :vec2 }
+    end
+    helper_collision.helpers_source(<<~RUBY)
+      def sample_color(tex, tex_sampler, uv)
+        texture(tex, uv) * tex_sampler
+      end
+    RUBY
+    helper_collision.fragment_source("sample_color(u.albedo, 1.0, frag_coord / resolution).xyz")
+
+    code = helper_collision.build_wgsl_shader
+    assert_match(/tex: texture_2d<f32>, (_rlsl_sampler\d+): sampler, tex_sampler: f32/, code)
+    assert_match(/textureSampleLevel\(tex, (_rlsl_sampler\d+),/, code)
+
+    reserved = RLSL::ShaderBuilder.new(:reserved_resource)
+    reserved.uniforms { sampler2D :output_texture }
+    reserved.fragment_source("vec3(0.0)")
+    error = assert_raise(ArgumentError) { reserved.build_wgsl_shader }
+    assert_include error.message, "WGSL module name conflict: output_texture"
+
+    reassigned = RLSL::Prism::Transpiler.new(
+      {},
+      { replace: { returns: :sampler2D, params: { tex: :sampler2D } } }
+    )
+    error = assert_raise(RLSL::Prism::TargetCapabilityError) do
+      reassigned.transpile_helpers_source("def replace(tex)\ntex = tex\ntex\nend", :wgsl,
+                                          { replace: { returns: :sampler2D, params: { tex: :sampler2D } } })
+    end
+    assert_include error.message, "texture parameter tex cannot be reassigned"
   end
 
   private
