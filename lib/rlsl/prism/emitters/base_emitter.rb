@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require "set"
+
+require_relative "../ir/traversal"
 require_relative "base_emitter/control_flow_emission"
 require_relative "base_emitter/expression_emission"
 require_relative "base_emitter/definition_emission"
@@ -68,9 +71,13 @@ module RLSL
           @return_context_stack = [false]
           @return_struct_name_stack = []
           @temporary_index = 0
+          @emit_depth = 0
+          @occupied_names = Set.new
         end
 
         def emit(node, needs_return: false)
+          @occupied_names = source_names(node) if @emit_depth.zero?
+          @emit_depth += 1
           with_return_context(needs_return) do
             return node.accept(self) if node.respond_to?(:accept)
 
@@ -79,6 +86,8 @@ module RLSL
         rescue RLSL::Error => error
           error.with_source_location(node.location) if node.respond_to?(:location)
           raise
+        ensure
+          @emit_depth -= 1
         end
 
         protected
@@ -140,9 +149,24 @@ module RLSL
         end
 
         def next_temporary_name(prefix)
-          name = :"_rlsl_#{prefix}#{@temporary_index}"
-          @temporary_index += 1
-          name
+          loop do
+            name = :"_rlsl_#{prefix}#{@temporary_index}"
+            @temporary_index += 1
+            next if @occupied_names.include?(name)
+
+            @occupied_names.add(name)
+            return name
+          end
+        end
+
+        def source_names(node)
+          IR::Traversal.each(node).filter_map do |current|
+            if current.respond_to?(:name)
+              current.name.to_sym
+            elsif current.is_a?(IR::ForLoop)
+              current.variable.to_sym
+            end
+          end.to_set
         end
       end
     end

@@ -23,7 +23,7 @@ module PrismTypeInferenceHelpers
     RLSL::Prism::IR::VarRef.new(name, type)
   end
 
-  def array_type(element_type)
-    RLSL::Prism::TypeShapes.array(element_type)
+  def array_type(element_type, length = nil)
+    RLSL::Prism::TypeShapes.array(element_type, length)
   end
 end

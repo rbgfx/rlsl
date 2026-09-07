@@ -32,6 +32,35 @@ class TargetCompilationTest < Test::Unit::TestCase
     end
   end
 
+  test "generated tuple helpers and assignments pass GLSL and WGSL validation" do
+    builder = RLSL::ShaderBuilder.new(:tuple_compiler_checked)
+    builder.functions do
+      define :pair, returns: %i[float float], params: { value: :float }
+    end
+    builder.helpers_source("def pair(value)\n[value, value]\nend")
+    builder.fragment_source(<<~RUBY)
+      n = 3
+      hits = 0
+      n.times do
+        n -= 1
+        hits += 1
+      end
+      a, b = pair(0.5)
+      a, b = [b, a]
+      vec3(a, b, hits / 3)
+    RUBY
+
+    require_command!("glslangValidator", "REQUIRE_GLSL_COMPILER")
+    with_shader_file("tuple.comp", builder.build_glsl_shader) do |path, directory|
+      assert_command_success("glslangValidator", "-V", path, "-o", File.join(directory, "tuple.spv"))
+    end
+
+    require_command!("naga", "REQUIRE_WGSL_COMPILER")
+    with_shader_file("tuple.wgsl", builder.build_wgsl_shader) do |path|
+      assert_command_success("naga", path)
+    end
+  end
+
   test "generated MSL passes the Metal compiler when installed" do
     unless metal_compiler_available?
       flunk("Metal compiler is required") if ENV["REQUIRE_MSL_COMPILER"] == "1"

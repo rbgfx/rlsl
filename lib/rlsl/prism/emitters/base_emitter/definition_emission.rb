@@ -76,6 +76,8 @@ module RLSL
 
             if node.value.is_a?(IR::FuncCall)
               emit_multi_return_assignment(node, value_code)
+            elsif node.value.is_a?(IR::ArrayLiteral)
+              emit_literal_assignment(node)
             else
               emit_indexed_assignment(node, value_code)
             end
@@ -97,6 +99,18 @@ module RLSL
             node.targets.each_with_index.map do |target, index|
               "#{emit_multiple_assignment_target(target, node.declarations[index])} = #{value_code}[#{index}]"
             end.join(";\n#{indent}")
+          end
+
+          def emit_literal_assignment(node)
+            temporaries = node.value.elements.map do |element|
+              name = next_temporary_name("value")
+              [name, emit_temporary_declaration(type_name(element.type || :float), name, emit(element))]
+            end
+            lines = temporaries.map(&:last)
+            node.targets.each_with_index do |target, index|
+              lines << "#{emit_multiple_assignment_target(target, node.declarations[index])} = #{temporaries[index].first}"
+            end
+            lines.join(";\n#{indent}")
           end
 
           def emit_multiple_assignment_target(target, declaration)

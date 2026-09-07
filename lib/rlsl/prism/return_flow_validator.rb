@@ -57,7 +57,7 @@ module RLSL
         when IR::Block
           returns_value_on_all_paths?(node.statements.last, tuple_return: tuple_return)
         when IR::Return
-          !node.expression.nil?
+          !node.expression.nil? && (tuple_return || !node.expression.is_a?(IR::ArrayLiteral))
         when IR::IfStatement
           node.else_branch &&
             returns_value_on_all_paths?(node.then_branch, tuple_return: tuple_return) &&

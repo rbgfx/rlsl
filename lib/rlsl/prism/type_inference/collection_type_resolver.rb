@@ -13,7 +13,7 @@ module RLSL
 
       def resolve_array_literal(node)
         element_type = node.elements.first&.type || :float
-        TypeShapes.array(element_type)
+        TypeShapes.array(element_type, node.elements.length)
       end
 
       def resolve_array_index(node)
@@ -29,7 +29,7 @@ module RLSL
           node.array_size ||= node.initializer.elements.length
           first_elem = node.initializer.elements.first
           node.element_type ||= first_elem&.type || :float
-          return TypeShapes.array(node.element_type)
+          return TypeShapes.array(node.element_type, node.array_size)
         end
 
         node.initializer&.type
@@ -37,39 +37,61 @@ module RLSL
 
       def assign_multiple_targets(node)
         value_type = node.value.type
-        return assign_tuple_targets(node.targets, value_type.types) if value_type.is_a?(IR::TupleType)
-        return assign_array_targets(node.targets, TypeShapes.element_type(value_type)) if TypeShapes.array?(value_type)
-        return assign_custom_targets(node.targets, @custom_functions[node.value.name]) if custom_multi_return?(node.value)
+        return assign_tuple_targets(node, node.value.elements.map(&:type)) if node.value.is_a?(IR::ArrayLiteral)
+        return assign_tuple_targets(node, value_type.types) if value_type.is_a?(IR::TupleType)
+        return assign_array_targets(node, TypeShapes.element_type(value_type)) if TypeShapes.array?(value_type)
+        return assign_custom_targets(node, @custom_functions[node.value.name]) if custom_multi_return?(node.value)
 
         nil
       end
 
       private
 
-      def assign_tuple_targets(targets, types)
-        targets.each_with_index do |target, index|
-          assign_target(target, types[index])
+      def assign_tuple_targets(node, types)
+        validate_target_count!(node.targets, types.length)
+        node.targets.each_with_index do |target, index|
+          assign_target(node, target, index, types[index])
         end
       end
 
-      def assign_array_targets(targets, type)
-        targets.each do |target|
-          assign_target(target, type)
+      def assign_array_targets(node, type)
+        count = node.value.type.element_count
+        validate_target_count!(node.targets, count) if count
+        node.targets.each_with_index do |target, index|
+          assign_target(node, target, index, type)
         end
       end
 
-      def assign_custom_targets(targets, signature)
+      def assign_custom_targets(node, signature)
         returns = signature[:returns]
         return unless returns.is_a?(Array)
 
-        targets.each_with_index do |target, index|
-          assign_target(target, returns[index])
-        end
+        assign_tuple_targets(node, returns)
       end
 
-      def assign_target(target, type)
+      def assign_target(node, target, index, type)
+        unless node.declarations[index]
+          existing_type = @type_environment.lookup(target.name)
+          unless compatible_assignment?(existing_type, type)
+            raise SignatureError, "Cannot assign #{type} to #{target.name} (#{existing_type})"
+          end
+
+          target.type = existing_type
+          return
+        end
+
         target.type = type
         @register.call(target.name, type)
+      end
+
+      def validate_target_count!(targets, value_count)
+        return if targets.length == value_count
+
+        raise SignatureError, "Multiple assignment has #{targets.length} targets for #{value_count} values"
+      end
+
+      def compatible_assignment?(target_type, value_type)
+        target_type == value_type || (target_type == :float && value_type == :int)
       end
 
       def custom_multi_return?(value)

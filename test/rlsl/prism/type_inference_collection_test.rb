@@ -21,7 +21,7 @@ class PrismTypeInferenceCollectionTest < Test::Unit::TestCase
     infer(direct_index)
     infer(metadata_index)
 
-    assert_equal array_type(:float), array_literal.type
+    assert_equal array_type(:float, 2), array_literal.type
     assert_equal :float, direct_index.type
     assert_equal :vec3, metadata_index.type
   end
@@ -36,10 +36,10 @@ class PrismTypeInferenceCollectionTest < Test::Unit::TestCase
     infer(array_decl)
     infer(scalar_decl)
 
-    assert_equal array_type(:float), array_decl.type
+    assert_equal array_type(:float, 2), array_decl.type
     assert_equal 2, array_decl.array_size
     assert_equal :float, array_decl.element_type
-    assert_equal array_type(:float), @type_inference.lookup(:weights)
+    assert_equal array_type(:float, 2), @type_inference.lookup(:weights)
     assert_equal :float, @type_inference.lookup(:weights_element_type)
     assert_equal :float, scalar_decl.type
     assert_equal :float, @type_inference.lookup(:exposure)
@@ -77,6 +77,6 @@ class PrismTypeInferenceCollectionTest < Test::Unit::TestCase
 
     infer(array_literal)
 
-    assert_equal array_type(:float), array_literal.type
+    assert_equal array_type(:float, 0), array_literal.type
   end
 end

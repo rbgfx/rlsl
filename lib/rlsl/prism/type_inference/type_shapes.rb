@@ -3,7 +3,7 @@
 module RLSL
   module Prism
     module TypeShapes
-      ArrayType = Struct.new(:element_type) do
+      ArrayType = Struct.new(:element_type, :element_count) do
         def to_sym
           :"array_#{element_type}"
         end
@@ -15,8 +15,8 @@ module RLSL
 
       module_function
 
-      def array(element_type)
-        ArrayType.new(element_type)
+      def array(element_type, length = nil)
+        ArrayType.new(element_type, length)
       end
 
       def array?(type)
