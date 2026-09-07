@@ -62,6 +62,9 @@ module RLSL
             args = node.args.map { |argument| emit_float_operand(argument) }
             return "rlsl_mod(#{args.join(', ')})"
           end
+          if node.name.to_sym == :atan && node.args.length == 2
+            return emit_named_call("atan2", node.args, expected_types: node.expected_arg_types)
+          end
 
           super
         end

@@ -311,6 +311,15 @@ class IssueRegressionsTest < Test::Unit::TestCase
     assert_include code, "vec3_splat("
   end
 
+  test "two-argument arctangent uses each target's valid spelling" do
+    source = "angle = atan(1.0, 2.0)\nvec3(angle)"
+
+    assert_include @transpiler.transpile_source(source, :c), "atan2f(1.0f, 2.0f)"
+    assert_include @transpiler.transpile_source(source, :glsl), "atan(1.0, 2.0)"
+    assert_include @transpiler.transpile_source(source, :wgsl), "atan2(1.0, 2.0)"
+    assert_include @transpiler.transpile_source(source, :msl), "atan2(1.0, 2.0)"
+  end
+
   test "C rejects unavailable matrix constructors before compilation" do
     error = assert_raise(RLSL::Prism::TargetCapabilityError) do
       @transpiler.transpile_source("mat2(1.0)", :c)
