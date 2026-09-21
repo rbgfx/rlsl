@@ -29,6 +29,31 @@ class MSLShaderTest < Test::Unit::TestCase
     assert_equal [:handle, 640, 480, { time: 1.0 }], captured_args
   end
 
+  test "prepare compiles once per handle and retries a failed compilation" do
+    omit unless RLSL::MSL::METACO_AVAILABLE
+    shader = RLSL::MSL::Shader.new(:test, {}, "test source")
+    original = Metaco.method(:compile_compute_shader)
+    attempts = 0
+    calls = []
+    Metaco.singleton_class.send(:remove_method, :compile_compute_shader)
+    Metaco.define_singleton_method(:compile_compute_shader) do |handle, source|
+      calls << [handle, source]
+      attempts += 1
+      raise RuntimeError, "compile failed" if attempts == 1
+      true
+    end
+    assert_raise(RuntimeError) { shader.prepare(:handle) }
+    assert_same shader, shader.prepare(:handle)
+    assert_same shader, shader.prepare(:handle)
+    assert_equal 2, attempts
+    assert_equal [[:handle, "test source"]] * 2, calls
+  ensure
+    if original
+      Metaco.singleton_class.send(:remove_method, :compile_compute_shader)
+      Metaco.define_singleton_method(:compile_compute_shader, original)
+    end
+  end
+
   test "pack_uniforms packs float uniform" do
     uniforms = { time: :float }
     shader = RLSL::MSL::Shader.new(:test, uniforms, "")

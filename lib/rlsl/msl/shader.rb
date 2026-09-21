@@ -29,7 +29,7 @@ module RLSL
         render_metal(handle, width, height, uniforms)
       end
 
-      def render_metal(handle, width, height, uniforms = {}, textures: {})
+      def prepare(handle)
         unless METACO_AVAILABLE
           raise LoadError, "metaco gem is required for Metal rendering. Install it with: gem install metaco"
         end
@@ -39,6 +39,11 @@ module RLSL
           @compiled_handles[handle] = true
           @compiled_handles.shift while @compiled_handles.length > COMPILED_HANDLE_CACHE_LIMIT
         end
+        self
+      end
+
+      def render_metal(handle, width, height, uniforms = {}, textures: {})
+        prepare(handle)
 
         uniform_data = pack_uniforms(uniforms, width, height)
 
