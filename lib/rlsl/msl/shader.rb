@@ -29,7 +29,7 @@ module RLSL
         render_metal(handle, width, height, uniforms)
       end
 
-      def render_metal(handle, width, height, uniforms = {})
+      def render_metal(handle, width, height, uniforms = {}, textures: {})
         unless METACO_AVAILABLE
           raise LoadError, "metaco gem is required for Metal rendering. Install it with: gem install metaco"
         end
@@ -41,6 +41,16 @@ module RLSL
         end
 
         uniform_data = pack_uniforms(uniforms, width, height)
+
+        sampler_names = @uniform_types.filter_map { |name, type| name if type == :sampler2D }
+        sampler_names.each do |name|
+          texture = textures[name] || textures[name.to_s]
+          raise ArgumentError, "missing texture uniform: #{name}" unless texture
+          unless Metaco.respond_to?(:bind_compute_texture)
+            raise LoadError, "metaco texture support is required for sampler2D uniforms"
+          end
+          Metaco.bind_compute_texture(handle, sampler_names.index(name), texture)
+        end
 
         Metaco.dispatch_compute(handle, uniform_data)
         Metaco.present_compute(handle)
