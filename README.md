@@ -160,7 +160,17 @@ Uniform names must be ASCII identifiers and may not use the RLSL-reserved names 
 - WGSL uses group 0 bindings 0 and 1 for the uniform buffer and output. Each texture/sampler pair then uses bindings 2/3, 4/5, and so on.
 - MSL uses texture 0 for output, texture 1 onward for sampled textures, and buffer 0 for uniforms. The generated shader uses an internal linear sampler.
 
-The C renderer and the current `metaco` runtime path do not bind `sampler2D` resources; attempts to use texture functions on C are rejected with a target-capability error. Texture-enabled source can still be emitted with `to_glsl`, `to_wgsl`, or `to_msl` and bound by the host application.
+The C renderer does not bind `sampler2D` resources; attempts to use texture
+functions on C are rejected with a target-capability error. Metal runtime
+rendering accepts a `textures:` hash keyed by sampler name and binds each
+texture in declaration order:
+
+```ruby
+shader.render_metal(handle, width, height, uniforms, textures: { albedo: texture })
+```
+
+Texture-enabled source can also be emitted with `to_glsl`, `to_wgsl`, or
+`to_msl` and bound by the host application.
 
 ## Supported Types
 
