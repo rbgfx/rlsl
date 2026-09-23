@@ -1,14 +1,19 @@
-# RLSL
+<h1 align="center">RLSL</h1>
 
-> Write shaders in Ruby. Emit GLSL, WGSL, MSL, or C.
+<p align="center">Ruby Like Shading Language — write shaders in Ruby and transpile them to GPU and CPU targets.</p>
 
-[![Gem version](https://badge.fury.io/rb/rlsl.svg)](https://rubygems.org/gems/rlsl) [![Downloads](https://img.shields.io/gem/dt/rlsl?label=downloads)](https://rubygems.org/gems/rlsl) [![Ruby](https://img.shields.io/badge/ruby-%3E%3D3.1-CC342D?logo=ruby&logoColor=white)](https://www.ruby-lang.org/) [![CI](https://github.com/rbgfx/rlsl/actions/workflows/main.yml/badge.svg)](https://github.com/rbgfx/rlsl/actions/workflows/main.yml) [![License](https://img.shields.io/badge/license-MIT-750014.svg)](LICENSE)
+<p align="center">
+  <a href="https://rubygems.org/gems/rlsl"><img src="https://badge.fury.io/rb/rlsl.svg" alt="Gem Version"></a>
+  <a href="https://rubygems.org/gems/rlsl"><img src="https://img.shields.io/gem/dt/rlsl?label=downloads" alt="Downloads"></a>
+  <a href="https://www.ruby-lang.org/"><img src="https://img.shields.io/badge/ruby-%3E%3D3.1-CC342D?logo=ruby&amp;logoColor=white" alt="Ruby Version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-750014.svg" alt="License"></a>
+</p>
 
-**[Features](#features) · [Installation](#installation) · [Requirements](#requirements) · [Usage](#usage) · [Texture Resources](#texture-resources) · [Supported Types](#supported-types) · [Development](#development) · [License](#license) · [Website](https://rbgfx.github.io/rlsl/)**
+[Features](#features) · [Installation](#installation) · [Usage](#usage) · [Texture Resources](#texture-resources) · [Supported Types](#supported-types)
 
----
+***
 
-RLSL is a Ruby DSL for shader authoring with type inference and target-specific code generation. The C target supports CPU rendering.
+RLSL is a Ruby DSL for shader authoring with type inference and target-specific code generation. Its C target supports CPU rendering.
 
 ## Features
 
@@ -41,7 +46,7 @@ Or install it yourself as:
 $ gem install rlsl
 ```
 
-## Requirements
+### Requirements
 
 - Ruby >= 3.1.0
 - [Prism](https://github.com/ruby/prism) >= 1.0.0 (for Ruby parsing)
@@ -245,6 +250,10 @@ $ rake verify
 ```
 
 For a quick local coverage summary, run `COVERAGE=1 rake test`. Set `COVERAGE_MIN=85` to enforce a minimum percentage. Target compiler integration tests use `glslangValidator`, Naga's `naga` CLI, and `xcrun metal` when those tools are installed; CI requires the GLSL and WGSL validators.
+
+## Contributing
+
+Bug reports and pull requests are welcome at [rbgfx/rlsl](https://github.com/rbgfx/rlsl).
 
 ## License
 
