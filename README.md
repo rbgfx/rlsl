@@ -1,6 +1,14 @@
 # RLSL
 
-Ruby Like Shading Language - A Ruby DSL for writing shaders that transpile to multiple GPU shader languages.
+> Write shaders in Ruby. Emit GLSL, WGSL, MSL, or C.
+
+[![Gem version](https://badge.fury.io/rb/rlsl.svg)](https://rubygems.org/gems/rlsl) [![Downloads](https://img.shields.io/gem/dt/rlsl?label=downloads)](https://rubygems.org/gems/rlsl) [![Ruby](https://img.shields.io/badge/ruby-%3E%3D3.1-CC342D?logo=ruby&logoColor=white)](https://www.ruby-lang.org/) [![CI](https://github.com/rbgfx/rlsl/actions/workflows/main.yml/badge.svg)](https://github.com/rbgfx/rlsl/actions/workflows/main.yml) [![License](https://img.shields.io/badge/license-MIT-750014.svg)](LICENSE)
+
+**[Features](#features) · [Installation](#installation) · [Requirements](#requirements) · [Usage](#usage) · [Texture Resources](#texture-resources) · [Supported Types](#supported-types) · [Development](#development) · [License](#license) · [Website](https://rbgfx.github.io/rlsl/)**
+
+---
+
+RLSL is a Ruby DSL for shader authoring with type inference and target-specific code generation. The C target supports CPU rendering.
 
 ## Features
 
@@ -32,6 +40,30 @@ Or install it yourself as:
 ```bash
 $ gem install rlsl
 ```
+
+## Requirements
+
+- Ruby >= 3.1.0
+- [Prism](https://github.com/ruby/prism) >= 1.0.0 (for Ruby parsing)
+- A working Ruby C-extension toolchain for `RLSL.define` (`make` is selected from Ruby's `RbConfig`)
+
+The test matrix covers supported Ruby releases on Ubuntu, macOS, and Windows, and runs a dedicated compatibility job against the declared Prism 1.0.0 lower bound. Metal runtime execution is macOS-only. GLSL, WGSL, and MSL source generation is platform-independent.
+
+### Optional: Metal Shader Execution (macOS only)
+
+To run Metal shaders natively, install the [metaco](https://github.com/rbgfx/metaco) gem separately:
+
+```bash
+$ gem install metaco
+```
+
+Or add to your Gemfile:
+
+```ruby
+gem "metaco", platforms: :ruby, install_if: -> { RUBY_PLATFORM.include?("darwin") }
+```
+
+MSL code generation (`RLSL.to_msl` or `RLSL.define_metal`) works without metaco. The gem is only required when calling `render_metal` at runtime.
 
 ## Usage
 
@@ -202,30 +234,6 @@ RLSL supports common shader functions:
 - `TAU` - 6.28318530717958647692
 
 Ruby-style `Math::PI` and `Math::TAU` are accepted as aliases in shader source.
-
-## Requirements
-
-- Ruby >= 3.1.0
-- [Prism](https://github.com/ruby/prism) >= 1.0.0 (for Ruby parsing)
-- A working Ruby C-extension toolchain for `RLSL.define` (`make` is selected from Ruby's `RbConfig`)
-
-The test matrix covers supported Ruby releases on Ubuntu, macOS, and Windows, and runs a dedicated compatibility job against the declared Prism 1.0.0 lower bound. Metal runtime execution is macOS-only. GLSL, WGSL, and MSL source generation is platform-independent.
-
-### Optional: Metal Shader Execution (macOS only)
-
-To run Metal shaders natively, install the [metaco](https://github.com/ydah/metaco) gem separately:
-
-```bash
-$ gem install metaco
-```
-
-Or add to your Gemfile:
-
-```ruby
-gem "metaco", platforms: :ruby, install_if: -> { RUBY_PLATFORM.include?("darwin") }
-```
-
-MSL code generation (`RLSL.to_msl` or `RLSL.define_metal`) works without metaco. The gem is only required when calling `render_metal` at runtime.
 
 ## Development
 
