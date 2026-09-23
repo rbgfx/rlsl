@@ -1,10 +1,17 @@
-name: CI
+name: Ruby
 
 on:
   push:
     branches:
       - main
   pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -26,11 +33,14 @@ jobs:
           - os: ubuntu-latest
             ruby: head
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+        uses: ruby/setup-ruby@984c0c890880bbf811283d6f09c4607c62d210a4 # v1.323.0
         with:
           ruby-version: ${{ matrix.ruby }}
+          bundler: default
           bundler-cache: true
       - name: Run tests
         run: bundle exec rake test
@@ -38,10 +48,13 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@984c0c890880bbf811283d6f09c4607c62d210a4 # v1.323.0
         with:
           ruby-version: "4.0"
+          bundler: default
           bundler-cache: true
       - name: Run lint checks
         run: bundle exec rake lint
@@ -53,10 +66,13 @@ jobs:
     env:
       PRISM_VERSION: "1.0.0"
     steps:
-      - uses: actions/checkout@v7
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@984c0c890880bbf811283d6f09c4607c62d210a4 # v1.323.0
         with:
           ruby-version: "3.1"
+          bundler: default
       - name: Install dependencies with minimum Prism
         run: bundle install
       - name: Run tests with minimum Prism
@@ -71,10 +87,13 @@ jobs:
   shader-validation:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@984c0c890880bbf811283d6f09c4607c62d210a4 # v1.323.0
         with:
           ruby-version: "4.0"
+          bundler: default
           bundler-cache: true
       - name: Install GLSL validator
         run: sudo apt-get update && sudo apt-get install -y glslang-tools
@@ -86,12 +105,30 @@ jobs:
   metal-validation:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@984c0c890880bbf811283d6f09c4607c62d210a4 # v1.323.0
         with:
           ruby-version: "4.0"
+          bundler: default
           bundler-cache: true
       - name: Install Metal toolchain
         run: xcodebuild -downloadComponent metalToolchain
       - name: Compile generated MSL
         run: REQUIRE_MSL_COMPILER=1 bundle exec ruby -Itest test/rlsl/target_compilation_test.rb
+
+  package:
+    name: Strict gem build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@984c0c890880bbf811283d6f09c4607c62d210a4 # v1.323.0
+        with:
+          ruby-version: '4.0'
+          bundler: default
+      - name: Build with strict gem validation
+        run: gem build --strict "$(find . -maxdepth 1 -name '*.gemspec' -print -quit)"
