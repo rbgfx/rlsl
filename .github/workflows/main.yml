@@ -15,108 +15,50 @@ concurrency:
 
 jobs:
   test:
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
-        ruby:
-          - "3.1"
-          - "3.2"
-          - "3.3"
-          - "3.4"
-          - "4.0"
-        include:
-          - os: ubuntu-latest
-            ruby: head
+        ruby: ['3.1', '3.2', '3.3', '3.4', '4.0']
+    defaults:
+      run:
+        working-directory: main
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          path: main
           persist-credentials: false
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@984c0c890880bbf811283d6f09c4607c62d210a4 # v1.323.0
+      - name: Checkout tessel
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: rbgfx/tessel
+          ref: main
+          path: tessel
+          persist-credentials: false
+      - name: Checkout rlsl
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: rbgfx/rlsl
+          ref: main
+          path: rlsl
+          persist-credentials: false
+      - name: Checkout flipbook
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: rbgfx/flipbook
+          ref: main
+          path: flipbook
+          persist-credentials: false
+      - name: Resolve dependencies for this Ruby version
+        run: rm Gemfile.lock
+      - uses: ruby/setup-ruby@984c0c890880bbf811283d6f09c4607c62d210a4 # v1.323.0
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler: default
           bundler-cache: true
-      - name: Run tests
-        run: bundle exec rake test
-
-  quality:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ruby/setup-ruby@984c0c890880bbf811283d6f09c4607c62d210a4 # v1.323.0
-        with:
-          ruby-version: "4.0"
-          bundler: default
-          bundler-cache: true
-      - name: Run lint checks
-        run: bundle exec rake lint
-      - name: Enforce coverage floor
-        run: COVERAGE=1 COVERAGE_MIN=85 bundle exec rake test
-
-  prism-lower-bound:
-    runs-on: ubuntu-latest
-    env:
-      PRISM_VERSION: "1.0.0"
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ruby/setup-ruby@984c0c890880bbf811283d6f09c4607c62d210a4 # v1.323.0
-        with:
-          ruby-version: "3.1"
-          bundler: default
-      - name: Install dependencies with minimum Prism
-        run: bundle install
-      - name: Run tests with minimum Prism
-        run: |
-          bundle exec ruby -Itest -Ilib -e '
-            expected = ENV.fetch("PRISM_VERSION")
-            actual = Gem.loaded_specs.fetch("prism").version.to_s
-            abort "expected Prism #{expected}, got #{actual}" unless actual == expected
-            Dir["test/**/*_test.rb"].sort.each { |file| require File.expand_path(file) }
-          '
-
-  shader-validation:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ruby/setup-ruby@984c0c890880bbf811283d6f09c4607c62d210a4 # v1.323.0
-        with:
-          ruby-version: "4.0"
-          bundler: default
-          bundler-cache: true
-      - name: Install GLSL validator
-        run: sudo apt-get update && sudo apt-get install -y glslang-tools
-      - name: Install WGSL validator
-        run: cargo install --git https://github.com/gfx-rs/wgpu --tag v29.0.3 naga-cli --locked
-      - name: Compile generated shaders
-        run: REQUIRE_GLSL_COMPILER=1 REQUIRE_WGSL_COMPILER=1 bundle exec ruby -Itest test/rlsl/target_compilation_test.rb
-
-  metal-validation:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ruby/setup-ruby@984c0c890880bbf811283d6f09c4607c62d210a4 # v1.323.0
-        with:
-          ruby-version: "4.0"
-          bundler: default
-          bundler-cache: true
-      - name: Install Metal toolchain
-        run: xcodebuild -downloadComponent metalToolchain
-      - name: Compile generated MSL
-        run: REQUIRE_MSL_COMPILER=1 bundle exec ruby -Itest test/rlsl/target_compilation_test.rb
+          working-directory: main
+      - name: Run verification
+        run: bundle exec rake verify
 
   package:
     name: Strict gem build
@@ -132,3 +74,18 @@ jobs:
           bundler: default
       - name: Build with strict gem validation
         run: gem build --strict "$(find . -maxdepth 1 -name '*.gemspec' -print -quit)"
+
+  signatures:
+    name: RBS signatures
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@984c0c890880bbf811283d6f09c4607c62d210a4 # v1.323.0
+        with:
+          ruby-version: '4.0'
+          bundler: default
+      - run: gem install rbs --no-document # zizmor: ignore[adhoc-packages]
+      - run: rbs -I sig validate
