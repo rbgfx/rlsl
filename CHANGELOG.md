@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.0.1 - 2026-09-25
+
+- Add Metal texture bindings and tighten shader typing and target validation.
 
 ## 1.0.0 - 2026-04-05
 
