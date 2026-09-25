@@ -2,7 +2,7 @@
 
 ## 1.0.1 - 2026-09-25
 
-- Add Metal texture bindings and tighten shader typing and target validation.
+- Support Metal texture bindings and report invalid shader types or targets earlier.
 
 ## 1.0.0 - 2026-04-05
 
@@ -11,7 +11,7 @@
 - Added: `functions` now supports validated signatures via `define`, plus shorthand declarations for `int`, `bool`, `mat2`, `mat3`, `mat4`, and `sampler2D`.
 - Changed: compiled shaders and Metal shaders now validate and normalize uniform values at runtime, with clearer errors for missing uniforms and invalid scalar/vector/bool inputs.
 - Fixed: integer type inference for custom function calls is preserved, and block source extraction is more reliable for assigned `if` expressions and modifier forms.
-- Fixed: native extension builds and target capability errors are more robust, reducing backend-specific build and translation failures.
+- Fixed: native extension installation and unsupported-target errors are more reliable.
 
 ## 0.1.1 - 2026-01-04
 
