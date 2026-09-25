@@ -28,8 +28,6 @@ jobs:
         with:
           path: main
           persist-credentials: false
-      - name: Resolve dependencies for this Ruby version
-        run: rm -f Gemfile.lock
       - uses: ruby/setup-ruby@984c0c890880bbf811283d6f09c4607c62d210a4 # v1.323.0
         with:
           ruby-version: ${{ matrix.ruby }}
