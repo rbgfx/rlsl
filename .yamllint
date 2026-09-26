@@ -1,0 +1,16 @@
+extends: default
+ignore: |
+  build/
+  node_modules/
+  runtime/build/
+  tmp/
+  **/*.dSYM/**
+
+rules:
+  comments:
+    min-spaces-from-content: 1
+  document-start: disable
+  line-length:
+    max: 200
+  truthy:
+    check-keys: false
